@@ -470,7 +470,12 @@ const SettingsPanel = ({ show, onHide }) => {
   if (!show) return null;
 
   return (
-    <div className="offcanvas offcanvas-end show" style={{ visibility: 'visible' }} tabIndex="-1">
+    <>
+      {/* Backdrop */}
+      <div className="offcanvas-backdrop show" onClick={onHide}></div>
+      
+      {/* Offcanvas */}
+      <div className="offcanvas offcanvas-end show" style={{ visibility: 'visible' }} tabIndex="-1">
       <div className="offcanvas-header">
         <h5 className="offcanvas-title">
           <i className="bi bi-gear me-2"></i>
@@ -553,6 +558,7 @@ const SettingsPanel = ({ show, onHide }) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

@@ -356,6 +356,17 @@ const TranslationWidget = () => {
           .translator-widget .offcanvas {
             width: 400px !important;
             max-width: 90vw !important;
+            z-index: 1000000 !important;
+            pointer-events: auto !important;
+          }
+          
+          .translator-widget .offcanvas * {
+            pointer-events: auto !important;
+          }
+          
+          .translator-widget .offcanvas-backdrop {
+            z-index: 999999 !important;
+            pointer-events: auto !important;
           }
           
           .translator-widget .nav-tabs .nav-link {

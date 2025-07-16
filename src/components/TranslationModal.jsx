@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from '../contexts/TranslationContext';
 import { findTranslation } from '../services/translationService';
 import { updateElementText, revertElementText } from '../utils/textNodeUtils';
@@ -18,6 +18,10 @@ const TranslationModal = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [autoPreviewEnabled, setAutoPreviewEnabled] = useState(false);
+  
+  const autoSaveTimeoutRef = useRef(null);
+  const lastSavedTextRef = useRef('');
   
   const { 
     currentLanguage, 
@@ -28,11 +32,78 @@ const TranslationModal = ({
     user 
   } = useTranslation();
 
+  // Debounced auto-save function
+  const autoSaveTranslation = useCallback((text) => {
+    if (!textNode || !text.trim() || text === lastSavedTextRef.current) return;
+    
+    const translation = {
+      nodeId: textNode.nodeId,
+      originalText: textNode.originalText,
+      translatedText: text.trim(),
+      pageUrl: textNode.pageUrl,
+      status: status
+    };
+    
+    const currentTranslations = translations[targetLanguage] || [];
+    const existing = findTranslation(currentTranslations, textNode.nodeId);
+    
+    if (existing) {
+      dispatch({
+        type: actions.UPDATE_TRANSLATION,
+        payload: translation
+      });
+    } else {
+      dispatch({
+        type: actions.ADD_TRANSLATION,
+        payload: translation
+      });
+    }
+    
+    lastSavedTextRef.current = text.trim();
+    
+    // Auto-enable preview when translation is saved
+    if (!autoPreviewEnabled && text.trim()) {
+      setAutoPreviewEnabled(true);
+      try {
+        updateElementText(textNode.element, text.trim(), textNode.originalText);
+        setIsPreviewing(true);
+        onPreview?.(text.trim());
+      } catch (err) {
+        setError('Failed to preview translation');
+      }
+    }
+  }, [textNode, status, targetLanguage, translations, dispatch, actions, autoPreviewEnabled, onPreview]);
+
+  // Handle text input changes with debounced auto-save
+  const handleTextChange = (newText) => {
+    setTranslatedText(newText);
+    
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
+    // Set new timeout for auto-save (1 second delay)
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      autoSaveTranslation(newText);
+    }, 1000);
+  };
+
+  // Clean up timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (show && textNode) {
       setTargetLanguage(currentLanguage);
       setError('');
       setIsPreviewing(false);
+      setAutoPreviewEnabled(false);
       
       // Load existing translation if available
       const currentTranslations = translations[currentLanguage] || [];
@@ -41,9 +112,12 @@ const TranslationModal = ({
       if (existing) {
         setTranslatedText(existing.translatedText);
         setStatus(existing.status);
+        lastSavedTextRef.current = existing.translatedText;
+        setAutoPreviewEnabled(true);
       } else {
         setTranslatedText('');
         setStatus('pending');
+        lastSavedTextRef.current = '';
       }
     }
   }, [show, textNode, currentLanguage, translations]);
@@ -79,31 +153,47 @@ const TranslationModal = ({
     setError('');
     
     try {
-      const translation = {
+      // If auto-save is enabled, the translation is already saved
+      // Just trigger final save to ensure it's up to date
+      if (autoPreviewEnabled) {
+        // Clear any pending auto-save and save immediately
+        if (autoSaveTimeoutRef.current) {
+          clearTimeout(autoSaveTimeoutRef.current);
+          autoSaveTranslation(translatedText);
+        }
+      } else {
+        // Manual save for when auto-save isn't enabled
+        const translation = {
+          nodeId: textNode.nodeId,
+          originalText: textNode.originalText,
+          translatedText: translatedText.trim(),
+          pageUrl: textNode.pageUrl,
+          status: status
+        };
+        
+        const currentTranslations = translations[targetLanguage] || [];
+        const existing = findTranslation(currentTranslations, textNode.nodeId);
+        
+        if (existing) {
+          dispatch({
+            type: actions.UPDATE_TRANSLATION,
+            payload: translation
+          });
+        } else {
+          dispatch({
+            type: actions.ADD_TRANSLATION,
+            payload: translation
+          });
+        }
+      }
+      
+      onSave?.({
         nodeId: textNode.nodeId,
         originalText: textNode.originalText,
         translatedText: translatedText.trim(),
         pageUrl: textNode.pageUrl,
         status: status
-      };
-      
-      // Check if translation exists
-      const currentTranslations = translations[targetLanguage] || [];
-      const existing = findTranslation(currentTranslations, textNode.nodeId);
-      
-      if (existing) {
-        dispatch({
-          type: actions.UPDATE_TRANSLATION,
-          payload: translation
-        });
-      } else {
-        dispatch({
-          type: actions.ADD_TRANSLATION,
-          payload: translation
-        });
-      }
-      
-      onSave?.(translation);
+      });
       onHide();
     } catch (err) {
       setError('Failed to save translation');
@@ -113,12 +203,18 @@ const TranslationModal = ({
   };
 
   const handleLanguageChange = (newLanguage) => {
+    // Clear any pending auto-save
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
     // Revert preview if active
     if (isPreviewing) {
       handleRevertPreview();
     }
     
     setTargetLanguage(newLanguage);
+    setAutoPreviewEnabled(false);
     
     // Load existing translation for new language
     const langTranslations = translations[newLanguage] || [];
@@ -127,9 +223,21 @@ const TranslationModal = ({
     if (existing) {
       setTranslatedText(existing.translatedText);
       setStatus(existing.status);
+      lastSavedTextRef.current = existing.translatedText;
+      setAutoPreviewEnabled(true);
+      // Auto-preview existing translation
+      setTimeout(() => {
+        try {
+          updateElementText(textNode.element, existing.translatedText, textNode.originalText);
+          setIsPreviewing(true);
+        } catch (err) {
+          console.warn('Failed to auto-preview existing translation:', err);
+        }
+      }, 100);
     } else {
       setTranslatedText('');
       setStatus('pending');
+      lastSavedTextRef.current = '';
     }
   };
 
@@ -210,6 +318,19 @@ const TranslationModal = ({
               <div className="alert alert-info" role="alert">
                 <i className="bi bi-eye me-2"></i>
                 Preview is active. The text on the page has been temporarily replaced.
+                {autoPreviewEnabled && (
+                  <small className="d-block mt-1">
+                    <i className="bi bi-magic me-1"></i>
+                    Auto-preview enabled - changes will be shown automatically
+                  </small>
+                )}
+              </div>
+            )}
+            
+            {autoPreviewEnabled && !isPreviewing && (
+              <div className="alert alert-success" role="alert">
+                <i className="bi bi-magic me-2"></i>
+                Auto-save and auto-preview enabled. Changes are saved automatically after 1 second.
               </div>
             )}
             
@@ -258,12 +379,18 @@ const TranslationModal = ({
                 className="form-control"
                 rows="4"
                 value={translatedText}
-                onChange={(e) => setTranslatedText(e.target.value)}
+                onChange={(e) => handleTextChange(e.target.value)}
                 placeholder="Enter translation here..."
                 disabled={isSaving || !canEdit}
               />
-              <div className="form-text">
-                {translatedText.length} characters
+              <div className="form-text d-flex justify-content-between">
+                <span>{translatedText.length} characters</span>
+                {autoPreviewEnabled && (
+                  <small className="text-success">
+                    <i className="bi bi-check-circle me-1"></i>
+                    Auto-save enabled
+                  </small>
+                )}
               </div>
             </div>
             
@@ -377,6 +504,11 @@ const TranslationModal = ({
                       <>
                         <span className="spinner-border spinner-border-sm me-2" role="status"></span>
                         Saving...
+                      </>
+                    ) : autoPreviewEnabled ? (
+                      <>
+                        <i className="bi bi-check-lg me-1"></i>
+                        Done & Close
                       </>
                     ) : (
                       <>

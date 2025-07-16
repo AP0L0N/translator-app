@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Translation Widget Integration Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .content-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .feature-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .feature-card h3 {
+            color: #5a67d8;
+            margin-top: 0;
+        }
+        
+        .integration-code {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #48bb78;
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-left: 4px solid #3182ce;
+            background: #ebf8ff;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #5a67d8;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background: #4c51bf;
+        }
+        
+        .navigation {
+            background: #ffffff;
+            padding: 15px 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .navigation ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            gap: 30px;
+        }
+        
+        .navigation a {
+            color: #4a5568;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .navigation a:hover {
+            color: #5a67d8;
+        }
+        
+        .footer {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 40px 20px;
+            border-radius: 10px;
+            margin-top: 40px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Welcome to Our Website</h1>
+        <p>This is a demo website showing how the Translation Widget integrates seamlessly with existing content.</p>
+        <div class="badge">Translation Widget Demo</div>
+    </div>
+
+    <nav class="navigation">
+        <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#products">Products</a></li>
+            <li><a href="#services">Services</a></li>
+            <li><a href="#about">About Us</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </nav>
+
+    <div class="content-section">
+        <h2>How to Integrate the Translation Widget</h2>
+        <p>Follow these simple steps to add translation capabilities to your website:</p>
+
+        <div class="integration-code">
+&lt;!-- Add this script tag to your HTML head or before closing body tag --&gt;
+&lt;script 
+    src="/dist/widget/widget.iife.js"
+    data-target-website="https://your-website.com"
+    data-debug="false"&gt;
+&lt;/script&gt;
+        </div>
+
+        <div class="alert">
+            <strong>Note:</strong> The widget will automatically initialize when the page loads. 
+            For manual control, add <code>data-auto-start="false"</code> and use <code>window.initTranslationWidget()</code>.
+        </div>
+    </div>
+
+    <div class="content-section">
+        <h2>Our Features</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>Easy Integration</h3>
+                <p>Simply add one script tag to your website and the translation widget is ready to use. No complex setup or configuration required.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Hover to Translate</h3>
+                <p>Hover over any text element to see translation options. Click the translate button to open the translation editor.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Multiple Languages</h3>
+                <p>Support for multiple languages including English, Spanish, French, German, and Italian. Easy to extend with more languages.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Import & Export</h3>
+                <p>Export translations as JSON or CSV files for sharing with translation partners. Import translations from external sources.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Version Control</h3>
+                <p>Track translation history with version control. See who made changes and when. Revert to previous versions if needed.</p>
+            </div>
+            <div class="feature-card">
+                <h3>User Management</h3>
+                <p>Role-based permissions for translators and administrators. Secure authentication with support for OAuth providers.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-section">
+        <h2>Getting Started</h2>
+        <p>Ready to start translating your website? Here's what you need to do:</p>
+        <ol>
+            <li><strong>Download the Widget:</strong> Get the latest widget.js file from the build output</li>
+            <li><strong>Add the Script:</strong> Include the script tag in your website's HTML</li>
+            <li><strong>Configure:</strong> Set your target website URL and other options</li>
+            <li><strong>Authenticate:</strong> Login with your translator credentials</li>
+            <li><strong>Start Translating:</strong> Hover over text and start adding translations</li>
+        </ol>
+        
+        <button class="btn" onclick="showCredentials()">Show Demo Credentials</button>
+        <button class="btn" onclick="toggleWidget()">Toggle Widget</button>
+    </div>
+
+    <div class="content-section">
+        <h2>Sample Content for Testing</h2>
+        <p>The following content is perfect for testing the translation widget functionality:</p>
+        
+        <h3>Product Information</h3>
+        <p>Our flagship product offers innovative solutions for modern businesses. With cutting-edge technology and user-friendly design, we help companies streamline their operations and improve efficiency.</p>
+        
+        <h4>Key Benefits</h4>
+        <ul>
+            <li>Increased productivity and workflow optimization</li>
+            <li>Seamless integration with existing systems</li>
+            <li>24/7 customer support and maintenance</li>
+            <li>Scalable solutions for businesses of all sizes</li>
+            <li>Cost-effective pricing with flexible payment options</li>
+        </ul>
+        
+        <blockquote>
+            <p>"This solution has transformed how we handle our daily operations. The interface is intuitive and the results are outstanding."</p>
+            <footer>— Sarah Johnson, Operations Manager</footer>
+        </blockquote>
+    </div>
+
+    <div class="content-section">
+        <h2>Technical Documentation</h2>
+        <p>For developers integrating the widget, here are the available configuration options:</p>
+        
+        <div class="integration-code">
+// Manual initialization with custom options
+window.initTranslationWidget({
+    targetWebsite: 'https://your-website.com',
+    debug: false,
+    containerId: 'custom-widget-container',
+    autoStart: true
+});
+
+// Access widget instance
+const widget = window.TranslationWidget;
+
+// Export current translations
+widget.exportTranslations().then(translations => {
+    console.log('Current translations:', translations);
+});
+
+// Destroy widget
+widget.destroy();
+        </div>
+    </div>
+
+    <footer class="footer">
+        <h3>Contact Information</h3>
+        <p>Email: support@example.com | Phone: +1 (555) 123-4567</p>
+        <p>Address: 123 Translation Street, Widget City, WC 12345</p>
+        <p>&copy; 2025 Translation Widget Demo. All rights reserved.</p>
+    </footer>
+
+    <script>
+        function showCredentials() {
+            alert('Demo Credentials:\n\nUsername: translator\nPassword: demo123\n\nOR\n\nUsername: admin\nPassword: admin123');
+        }
+        
+        function toggleWidget() {
+            if (window.TranslationWidget) {
+                window.TranslationWidget.destroy();
+                window.TranslationWidget = null;
+                alert('Widget destroyed. Reload page to restart.');
+            } else {
+                alert('Widget is not currently active. Check if the script is loaded.');
+            }
+        }
+        
+        // Simulate widget loading (in real implementation, this would be the actual widget script)
+        console.log('Translation Widget Demo Page Loaded');
+        console.log('In a real implementation, include the widget script here:');
+        console.log('<script src="/dist/widget/widget.iife.js"></script>');
+    </script>
+
+    <!-- 
+    Uncomment the following line to actually load the translation widget:
+    <script src="../dist/widget/widget.iife.js" data-debug="true"></script>
+    -->
+</body>
+</html>

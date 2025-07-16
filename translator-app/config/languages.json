@@ -1,0 +1,46 @@
+{
+  "languages": [
+    {
+      "code": "en",
+      "name": "English",
+      "nativeName": "English",
+      "uriPath": "/en",
+      "flag": "🇺🇸",
+      "rtl": false
+    },
+    {
+      "code": "es",
+      "name": "Spanish",
+      "nativeName": "Español",
+      "uriPath": "/es",
+      "flag": "🇪🇸",
+      "rtl": false
+    },
+    {
+      "code": "fr",
+      "name": "French",
+      "nativeName": "Français",
+      "uriPath": "/fr",
+      "flag": "🇫🇷",
+      "rtl": false
+    },
+    {
+      "code": "de",
+      "name": "German",
+      "nativeName": "Deutsch",
+      "uriPath": "/de",
+      "flag": "🇩🇪",
+      "rtl": false
+    },
+    {
+      "code": "it",
+      "name": "Italian",
+      "nativeName": "Italiano",
+      "uriPath": "/it",
+      "flag": "🇮🇹",
+      "rtl": false
+    }
+  ],
+  "defaultLanguage": "en",
+  "fallbackLanguage": "en"
+}

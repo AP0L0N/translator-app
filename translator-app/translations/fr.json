@@ -1,0 +1,20 @@
+[
+  {
+    "nodeId": "header-title-home",
+    "originalText": "Welcome to Chipolo",
+    "translatedText": "Bienvenue chez Chipolo",
+    "lastModified": "2025-01-16T14:40:00Z",
+    "pageUrl": "https://chipolo.net/",
+    "status": "approved",
+    "version": 1
+  },
+  {
+    "nodeId": "nav-products",
+    "originalText": "Products",
+    "translatedText": "Produits",
+    "lastModified": "2025-01-16T14:40:00Z",
+    "pageUrl": "https://chipolo.net/",
+    "status": "approved",
+    "version": 1
+  }
+]

@@ -1,0 +1,24 @@
+{
+  "name": "website-translation-widget",
+  "version": "1.0.0",
+  "description": "Embeddable website translation widget using Vue.js 3 and Vuetify 3",
+  "main": "dist/translation-widget.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "demo": "node serve-demo.js",
+    "start": "npm run demo"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "vuetify": "^3.4.0",
+    "@mdi/font": "^7.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.5.0",
+    "vite": "^5.0.0",
+    "sass": "^1.69.0"
+  },
+  "type": "module"
+}

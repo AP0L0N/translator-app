@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sample Website - Translation Widget Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        
+        nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            gap: 2rem;
+        }
+        
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4rem 2rem;
+            text-align: center;
+            margin-bottom: 3rem;
+            border-radius: 10px;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .feature-card {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .feature-card h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+        
+        .cta {
+            background: #e74c3c;
+            color: white;
+            padding: 3rem;
+            text-align: center;
+            border-radius: 10px;
+            margin: 3rem 0;
+        }
+        
+        .cta button {
+            background: white;
+            color: #e74c3c;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+        
+        footer {
+            background: #34495e;
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+        }
+        
+        .dynamic-content {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 1rem;
+            margin: 2rem 0;
+            border-radius: 5px;
+        }
+        
+        #dynamic-text {
+            font-weight: bold;
+            color: #856404;
+        }
+        
+        .add-content-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <ul>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#services">Services</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <h1>Welcome to Our Amazing Website</h1>
+            <p>This is a sample website to demonstrate the translation widget functionality.</p>
+            <button onclick="alert('Hello World!')">Get Started</button>
+        </section>
+
+        <section class="features">
+            <div class="feature-card">
+                <h3>Easy Translation</h3>
+                <p>Hover over any text element to see the edit icon appear. Click it to open the translation modal.</p>
+                <a href="#more">Learn More</a>
+            </div>
+            
+            <div class="feature-card">
+                <h3>Live Preview</h3>
+                <p>Toggle the preview mode to see your translations applied in real-time across the entire website.</p>
+                <span>Try it now!</span>
+            </div>
+            
+            <div class="feature-card">
+                <h3>Export Data</h3>
+                <p>Export all your translations as a JSON file for backup or use in other translation systems.</p>
+                <li>Easy to use</li>
+                <li>Professional quality</li>
+                <li>Fast and reliable</li>
+            </div>
+        </section>
+
+        <section class="dynamic-content">
+            <h2>Dynamic Content Test</h2>
+            <p>This section tests the MutationObserver functionality. Click the button below to add new translatable content.</p>
+            <div id="dynamic-container">
+                <p id="dynamic-text">This text was here initially.</p>
+            </div>
+            <button class="add-content-btn" onclick="addDynamicContent()">Add New Content</button>
+        </section>
+
+        <section class="cta">
+            <h2>Ready to Start Translating?</h2>
+            <p>Begin by hovering over any text on this page and clicking the edit icon that appears.</p>
+            <button onclick="showInstructions()">Show Instructions</button>
+        </section>
+
+        <section>
+            <h2>Sample Content for Translation</h2>
+            <h3>Different Types of Elements</h3>
+            <p>This is a paragraph that can be translated.</p>
+            <h4>Subheading Example</h4>
+            <span>This is a span element with text.</span>
+            <div>
+                <button type="button">Button Text</button>
+                <a href="#test">Link Text Example</a>
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 2rem;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="border: 1px solid #ddd; padding: 8px;">Column 1</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Column 2</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Column 3</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 8px;">Cell Data 1</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">Cell Data 2</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">Cell Data 3</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Sample Website. All rights reserved.</p>
+            <p>This website is for demonstrating the translation widget.</p>
+        </div>
+    </footer>
+
+    <script>
+        let dynamicCounter = 1;
+        
+        function addDynamicContent() {
+            dynamicCounter++;
+            const container = document.getElementById('dynamic-container');
+            const newElement = document.createElement('p');
+            newElement.textContent = `This is dynamically added content #${dynamicCounter}. It should be translatable too!`;
+            newElement.style.color = '#666';
+            newElement.style.fontStyle = 'italic';
+            newElement.style.marginTop = '1rem';
+            container.appendChild(newElement);
+        }
+        
+        function showInstructions() {
+            alert(`Instructions:
+1. Hover over any text element to see the edit icon
+2. Click the edit icon to open the translation modal
+3. Enter your translation and save
+4. Toggle "Preview Mode" to see translations applied
+5. Use "Export Translations" to download your work`);
+        }
+    </script>
+
+    <!-- Include the translation widget -->
+    <link rel="stylesheet" href="../dist/translation-widget.css">
+    <script src="../dist/translation-widget.iife.js"></script>
+</body>
+</html>

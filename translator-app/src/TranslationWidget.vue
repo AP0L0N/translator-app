@@ -8,7 +8,7 @@
       elevation="8"
       @mousedown="startDrag"
     >
-      <v-card-title class="drag-handle">
+      <v-card-title class="drag-handle" style="display: flex; align-items: center; justify-content: space-between;">
         <v-icon>mdi-translate</v-icon>
         Translation Widget
         <v-spacer></v-spacer>
@@ -27,17 +27,26 @@
             v-model="previewMode"
             color="primary"
             label="Preview Mode"
-            @change="onPreviewModeChange"
           ></v-switch>
         </div>
         
         <v-btn
           color="primary"
           block
+          class="mb-2"
           @click="exportTranslations"
         >
           <v-icon left>mdi-download</v-icon>
-          Export Translations
+          Export JSON
+        </v-btn>
+        
+        <v-btn
+          color="success"
+          block
+          @click="exportTranslationsHTML"
+        >
+          <v-icon left>mdi-file-html-box</v-icon>
+          Export HTML
         </v-btn>
       </v-card-text>
     </v-card>
@@ -54,22 +63,7 @@
       <v-icon>mdi-translate</v-icon>
     </v-btn>
 
-    <!-- Edit icons for hoverable elements -->
-    <div
-      v-for="(icon, index) in editIcons"
-      :key="index"
-      class="edit-icon"
-      :style="{ left: icon.x + 'px', top: icon.y + 'px' }"
-    >
-      <v-btn
-        size="small"
-        color="primary"
-        icon
-        @click="openEditModal(icon.element)"
-      >
-        <v-icon size="16">mdi-pencil</v-icon>
-      </v-btn>
-    </div>
+
 
     <!-- Translation Modal -->
     <TranslationModal
@@ -82,8 +76,9 @@
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import TranslationModal from './TranslationModal.vue'
+import { generateHTMLReport } from './htmlReportGenerator.js'
 
 // We'll import TranslationManager class locally to avoid circular imports
 // This is a copy of the class from main.js for use in the component
@@ -92,6 +87,8 @@ class TranslationManager {
     this.observer = null
     this.previewMode = false
     this.originalTexts = new Map()
+    this.originalActions = new Map() // Store original click handlers
+    this.screenshots = new Map() // Store screenshots for elements
   }
 
   getTranslations() {
@@ -110,9 +107,65 @@ class TranslationManager {
     }
   }
 
+  getScreenshots() {
+    try {
+      return JSON.parse(localStorage.getItem('VUE_TRANSLATIONS_APP_SCREENSHOTS') || '{}')
+    } catch {
+      return {}
+    }
+  }
+
+  async captureScreenshot(element) {
+    try {
+      // Import html2canvas dynamically to avoid bundle size issues
+      const html2canvas = (await import('html2canvas')).default
+      
+      // Temporarily hide any modals or overlays that might interfere
+      const modals = document.querySelectorAll('.v-overlay, .v-dialog, .modal, [role="dialog"], .translation-widget .v-dialog')
+      const originalStyles = []
+      
+      modals.forEach(modal => {
+        originalStyles.push(modal.style.display)
+        modal.style.display = 'none'
+      })
+      
+      // Get element bounds
+      const rect = element.getBoundingClientRect()
+      
+      // Create a 600x400 viewport centered on the element
+      const width = 600
+      const height = 400
+      const x = Math.max(0, rect.left + rect.width / 2 - width / 2)
+      const y = Math.max(0, rect.top + rect.height / 2 - height / 2)
+      
+      // Capture the screenshot
+      const canvas = await html2canvas(document.body, {
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      })
+      
+      // Restore modal visibility
+      modals.forEach((modal, index) => {
+        modal.style.display = originalStyles[index] || ''
+      })
+      
+      // Convert to base64
+      return canvas.toDataURL('image/png')
+    } catch (error) {
+      console.warn('Failed to capture screenshot:', error)
+      return null
+    }
+  }
+
   saveTranslation(originalText, translatedText, element) {
     const translations = this.getTranslations()
     const metadata = this.getMetadata()
+    const screenshots = this.getScreenshots()
     
     translations[originalText] = translatedText
     
@@ -121,6 +174,19 @@ class TranslationManager {
         xpath: this.getXPath(element),
         uri: window.location.href
       }
+    }
+    
+    // Capture screenshot if not already captured
+    if (!screenshots[originalText]) {
+      // Delay screenshot capture to avoid modal overlay
+      setTimeout(() => {
+        this.captureScreenshot(element).then(screenshot => {
+          if (screenshot) {
+            screenshots[originalText] = screenshot
+            localStorage.setItem('VUE_TRANSLATIONS_APP_SCREENSHOTS', JSON.stringify(screenshots))
+          }
+        })
+      }, 500) // 0.5 second delay
     }
     
     localStorage.setItem('VUE_TRANSLATIONS_APP_DATA', JSON.stringify(translations))
@@ -148,6 +214,44 @@ class TranslationManager {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
+
+  async exportTranslationsHTML() {
+    try {
+      const translations = this.getTranslations()
+      const metadata = this.getMetadata()
+      const screenshots = this.getScreenshots()
+      
+      // Create a ZIP file to contain HTML and images
+      const JSZip = (await import('jszip')).default
+      const zip = new JSZip()
+      
+      // Create images folder
+      const imagesFolder = zip.folder('images')
+      
+      // Generate HTML content
+      const htmlContent = generateHTMLReport(translations, metadata, screenshots, imagesFolder)
+      
+      // Add HTML file to zip
+      zip.file('translations_report.html', htmlContent)
+      
+      // Generate and download ZIP
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(zipBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'translations_with_screenshots.zip'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+    } catch (error) {
+      console.error('Failed to export HTML:', error)
+      alert('Failed to export HTML file. Please try again.')
+    }
+  }
+
+
 
   getXPath(element) {
     if (element === document.body) {
@@ -213,6 +317,8 @@ class TranslationManager {
     const originalText = this.originalTexts.get(element)
     if (originalText) {
       element.textContent = originalText
+    } else {
+      console.warn('No original text found for element:', element)
     }
   }
 
@@ -221,7 +327,11 @@ class TranslationManager {
     const elements = this.getTranslatableElements()
     
     elements.forEach(element => {
-      this.storeOriginalText(element)
+      // Only store original text if we don't already have it
+      if (!this.originalTexts.has(element)) {
+        this.storeOriginalText(element)
+      }
+      
       if (enabled) {
         this.applyTranslation(element)
       } else {
@@ -263,6 +373,47 @@ class TranslationManager {
       this.observer = null
     }
   }
+
+  // Disable interactive elements (links, buttons) to allow translation
+  disableInteractiveElements() {
+    const interactiveElements = document.querySelectorAll('a, button, input[type="button"], input[type="submit"]')
+    
+    interactiveElements.forEach(element => {
+      // Skip translation widget's own elements
+      if (element.closest('.translation-widget')) {
+        return
+      }
+      
+      // Store original click handler if it exists
+      if (element.onclick || element._clickHandler) {
+        this.originalActions.set(element, element.onclick || element._clickHandler)
+      }
+      
+      // Disable the element by removing click handlers and adding visual indication
+      element.onclick = null
+      element.style.opacity = '0.7'
+      element.style.cursor = 'pointer' // Keep pointer cursor for translation
+      element.setAttribute('data-translation-disabled', 'true')
+    })
+  }
+
+  // Re-enable interactive elements
+  enableInteractiveElements() {
+    const interactiveElements = document.querySelectorAll('[data-translation-disabled="true"]')
+    
+    interactiveElements.forEach(element => {
+      // Restore original click handler
+      const originalHandler = this.originalActions.get(element)
+      if (originalHandler) {
+        element.onclick = originalHandler
+      }
+      
+      // Re-enable the element
+      element.style.opacity = ''
+      element.style.cursor = ''
+      element.removeAttribute('data-translation-disabled')
+    })
+  }
 }
 
 export default {
@@ -273,11 +424,10 @@ export default {
   setup() {
     // Reactive data
     const showWidget = ref(true)
-    const previewMode = ref(false)
+    const previewMode = ref(true)
     const position = ref({ x: 20, y: 20 })
     const isDragging = ref(false)
     const dragOffset = ref({ x: 0, y: 0 })
-    const editIcons = ref([])
     const showModal = ref(false)
     const selectedText = ref('')
     const selectedElement = ref(null)
@@ -285,6 +435,16 @@ export default {
 
     // Translation manager instance
     const translationManager = new TranslationManager()
+
+    // Watch for preview mode changes
+    watch(previewMode, (newValue) => {
+      translationManager.togglePreviewMode(newValue)
+      if (newValue) {
+        translationManager.startObserving()
+      } else {
+        translationManager.stopObserving()
+      }
+    })
 
     // Dragging functionality
     const startDrag = (event) => {
@@ -317,55 +477,57 @@ export default {
     // Widget visibility toggle
     const toggleWidget = () => {
       showWidget.value = !showWidget.value
-      if (!showWidget.value) {
-        hideEditIcons()
+      
+      if (showWidget.value) {
+        // Widget is now active - disable interactive elements
+        translationManager.disableInteractiveElements()
+      } else {
+        // Widget is now inactive - re-enable interactive elements
+        translationManager.enableInteractiveElements()
       }
     }
 
-    // Preview mode toggle
-    const onPreviewModeChange = (enabled) => {
-      translationManager.togglePreviewMode(enabled)
-      if (enabled) {
-        translationManager.startObserving()
-      } else {
-        translationManager.stopObserving()
-      }
-    }
+
 
     // Export functionality
     const exportTranslations = () => {
       translationManager.exportTranslations()
     }
 
-    // Edit icons management
-    const showEditIcon = (element, event) => {
-      if (!showWidget.value) return
-      
-      const rect = element.getBoundingClientRect()
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-      const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft
-      
-      editIcons.value = [{
-        element,
-        x: rect.right + scrollLeft + 5,
-        y: rect.top + scrollTop
-      }]
+    const exportTranslationsHTML = () => {
+      translationManager.exportTranslationsHTML()
     }
 
-    const hideEditIcons = () => {
-      editIcons.value = []
+    // Click to translate functionality
+    const handleElementClick = (element, event) => {
+      if (!showWidget.value || showModal.value) return
+      
+      // Skip translation widget's own elements
+      if (element.closest('.translation-widget')) {
+        return
+      }
+      
+      // Prevent default behavior for links and buttons
+      if (element.tagName === 'A' || element.tagName === 'BUTTON') {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+      
+      openEditModal(element)
     }
 
     // Modal functionality
     const openEditModal = (element) => {
       selectedElement.value = element
-      selectedText.value = element.textContent.trim()
+      
+      // Always get the original text, not the current displayed text
+      const originalText = translationManager.originalTexts.get(element) || element.textContent.trim()
+      selectedText.value = originalText
       
       const translations = translationManager.getTranslations()
-      existingTranslation.value = translations[selectedText.value] || ''
+      existingTranslation.value = translations[originalText] || ''
       
       showModal.value = true
-      hideEditIcons()
     }
 
     const onSaveTranslation = (translatedText) => {
@@ -378,7 +540,7 @@ export default {
         
         // If preview mode is on, apply the translation immediately
         if (previewMode.value) {
-          selectedElement.value.textContent = translatedText
+          translationManager.applyTranslation(selectedElement.value)
         }
       }
       
@@ -388,38 +550,57 @@ export default {
       existingTranslation.value = ''
     }
 
-    // Add hover listeners to translatable elements
-    const addHoverListeners = () => {
+    // Add click listeners to translatable elements
+    const addClickListeners = () => {
       const elements = translationManager.getTranslatableElements()
       
       elements.forEach(element => {
-        element.addEventListener('mouseenter', (event) => {
-          showEditIcon(element, event)
-        })
-        
-        element.addEventListener('mouseleave', () => {
-          // Delay hiding to allow clicking the edit icon
-          setTimeout(hideEditIcons, 100)
+        element.addEventListener('click', (event) => {
+          handleElementClick(element, event)
         })
       })
     }
 
-    // Remove hover listeners (for cleanup)
-    const removeHoverListeners = () => {
+    // Remove click listeners (for cleanup)
+    const removeClickListeners = () => {
       const elements = translationManager.getTranslatableElements()
       elements.forEach(element => {
-        element.removeEventListener('mouseenter', showEditIcon)
-        element.removeEventListener('mouseleave', hideEditIcons)
+        element.removeEventListener('click', handleElementClick)
       })
     }
 
     // Lifecycle hooks
     onMounted(() => {
-      addHoverListeners()
+      // Store original texts for all translatable elements BEFORE enabling preview mode
+      const elements = translationManager.getTranslatableElements()
+      elements.forEach(element => {
+        translationManager.storeOriginalText(element)
+      })
+      
+      addClickListeners()
+      
+      // Initialize preview mode (enabled by default) AFTER storing original texts
+      translationManager.togglePreviewMode(true)
+      translationManager.startObserving()
+      
+      // Disable interactive elements since widget is active by default
+      translationManager.disableInteractiveElements()
       
       // Re-add listeners when new content is added
       const observer = new MutationObserver(() => {
-        setTimeout(addHoverListeners, 100)
+        setTimeout(() => {
+          addClickListeners()
+          // Also store original texts for new elements
+          const newElements = translationManager.getTranslatableElements()
+          newElements.forEach(element => {
+            translationManager.storeOriginalText(element)
+          })
+          
+          // Disable new interactive elements if widget is active
+          if (showWidget.value) {
+            translationManager.disableInteractiveElements()
+          }
+        }, 100)
       })
       
       observer.observe(document.body, {
@@ -429,22 +610,22 @@ export default {
     })
 
     onUnmounted(() => {
-      removeHoverListeners()
+      removeClickListeners()
       translationManager.stopObserving()
+      translationManager.enableInteractiveElements()
     })
 
     return {
       showWidget,
       previewMode,
       position,
-      editIcons,
       showModal,
       selectedText,
       existingTranslation,
       startDrag,
       toggleWidget,
-      onPreviewModeChange,
       exportTranslations,
+      exportTranslationsHTML,
       openEditModal,
       onSaveTranslation
     }
@@ -480,11 +661,7 @@ export default {
   z-index: 999999;
 }
 
-.edit-icon {
-  position: absolute;
-  z-index: 999998;
-  pointer-events: auto;
-}
+
 
 /* Ensure the widget styles don't conflict with host page */
 .translation-widget * {

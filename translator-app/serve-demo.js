@@ -5,10 +5,15 @@
  * Usage: node serve-demo.js [port]
  */
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { promisify } = require('util');
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+import { fileURLToPath } from 'url';
+
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const readFile = promisify(fs.readFile);
 const stat = promisify(fs.stat);

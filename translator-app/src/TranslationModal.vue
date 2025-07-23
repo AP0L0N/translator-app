@@ -7,7 +7,7 @@
   >
     <v-card>
       <v-card-title class="text-h5">
-        <v-icon class="mr-2">mdi-translate</v-icon>
+        <v-icon class="mr-3">mdi-translate</v-icon>
         Edit Translation
       </v-card-title>
 

@@ -466,9 +466,19 @@ class TranslationManager {
         return
       }
       
+      // Skip elements already disabled
+      if (element.hasAttribute('data-translation-disabled')) {
+        return
+      }
+      
       // Store original click handler if it exists
       if (element.onclick || element._clickHandler) {
         this.originalActions.set(element, element.onclick || element._clickHandler)
+      }
+      
+      // Store original href for links
+      if (element.tagName === 'A' && element.href) {
+        this.originalActions.set(element, { type: 'href', value: element.href })
       }
       
       // Disable the element by removing click handlers and adding visual indication
@@ -476,6 +486,17 @@ class TranslationManager {
       element.style.opacity = '0.7'
       element.style.cursor = 'pointer' // Keep pointer cursor for translation
       element.setAttribute('data-translation-disabled', 'true')
+      
+      // For links, prevent navigation
+      if (element.tagName === 'A') {
+        element.href = 'javascript:void(0)'
+        element.target = ''
+      }
+      
+      // For buttons, prevent form submission
+      if (element.tagName === 'BUTTON') {
+        element.type = 'button'
+      }
     })
   }
 
@@ -484,16 +505,26 @@ class TranslationManager {
     const interactiveElements = document.querySelectorAll('[data-translation-disabled="true"]')
     
     interactiveElements.forEach(element => {
-      // Restore original click handler
-      const originalHandler = this.originalActions.get(element)
-      if (originalHandler) {
-        element.onclick = originalHandler
+      // Restore original click handler or href
+      const originalAction = this.originalActions.get(element)
+      if (originalAction) {
+        if (typeof originalAction === 'function') {
+          element.onclick = originalAction
+        } else if (originalAction.type === 'href') {
+          element.href = originalAction.value
+        }
       }
       
       // Re-enable the element
       element.style.opacity = ''
       element.style.cursor = ''
       element.removeAttribute('data-translation-disabled')
+      
+      // Restore button type if it was changed
+      if (element.tagName === 'BUTTON' && element.type === 'button') {
+        // We can't know the original type, so we'll leave it as button
+        // This is a limitation but better than breaking functionality
+      }
     })
   }
 }
@@ -602,20 +633,33 @@ export default {
 
     // Click to translate functionality
     const handleElementClick = (element, event) => {
-      if (!showWidget.value || showModal.value) return
-      
       // Skip translation widget's own elements
       if (element.closest('.translation-widget')) {
         return
       }
       
-      // Prevent default behavior for links and buttons
-      if (element.tagName === 'A' || element.tagName === 'BUTTON') {
-        event.preventDefault()
-        event.stopPropagation()
+      // Only handle clicks when widget is visible and modal is not open
+      if (!showWidget.value || showModal.value) {
+        // Allow normal behavior when widget is hidden
+        return
       }
       
-      openEditModal(element)
+      // For interactive elements, only handle clicks when widget is active
+      if (element.tagName === 'A' || element.tagName === 'BUTTON' || element.tagName === 'INPUT') {
+        // Check if the element is disabled by our translation system
+        if (!element.hasAttribute('data-translation-disabled')) {
+          // Element is not disabled, allow normal behavior
+          return
+        }
+        
+        // Element is disabled, prevent default behavior and open modal
+        event.preventDefault()
+        event.stopPropagation()
+        openEditModal(element)
+      } else {
+        // For non-interactive elements, always open modal when widget is active
+        openEditModal(element)
+      }
     }
 
     // Modal functionality
@@ -671,6 +715,8 @@ export default {
       })
     }
 
+
+
     // Lifecycle hooks
     onMounted(() => {
       // Store original texts for all translatable elements BEFORE enabling preview mode
@@ -685,8 +731,10 @@ export default {
       translationManager.togglePreviewMode(true)
       translationManager.startObserving()
       
-      // Disable interactive elements since widget is active by default
-      translationManager.disableInteractiveElements()
+      // Only disable interactive elements if widget is actually visible
+      if (showWidget.value) {
+        translationManager.disableInteractiveElements()
+      }
       
       // Re-add listeners when new content is added
       const observer = new MutationObserver(() => {

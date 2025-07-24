@@ -48,6 +48,18 @@
           <v-icon left>mdi-file-html-box</v-icon>
           Export HTML
         </v-btn>
+        
+        <v-divider class="my-3"></v-divider>
+        
+        <v-btn
+          color="info"
+          block
+          class="mb-2"
+          @click="importTranslations"
+        >
+          <v-icon left>mdi-upload</v-icon>
+          Import JSON
+        </v-btn>
       </v-card-text>
     </v-card>
 
@@ -251,6 +263,76 @@ class TranslationManager {
     }
   }
 
+  importTranslations() {
+    return new Promise((resolve, reject) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.json'
+      input.style.display = 'none'
+      
+      input.onchange = (event) => {
+        const file = event.target.files[0]
+        if (!file) {
+          reject(new Error('No file selected'))
+          return
+        }
+        
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          try {
+            const importData = JSON.parse(e.target.result)
+            
+            // Validate the import data structure
+            if (!Array.isArray(importData)) {
+              throw new Error('Invalid file format. Expected an array of translation objects.')
+            }
+            
+            const translations = this.getTranslations()
+            const metadata = this.getMetadata()
+            let importedCount = 0
+            
+            importData.forEach(item => {
+              if (item.originalText && item.translatedText) {
+                translations[item.originalText] = item.translatedText
+                importedCount++
+                
+                // Import metadata if available
+                if (item.xpath || item.uri) {
+                  metadata[item.originalText] = {
+                    xpath: item.xpath || '',
+                    uri: item.uri || window.location.href
+                  }
+                }
+              }
+            })
+            
+            // Save to localStorage
+            localStorage.setItem('VUE_TRANSLATIONS_APP_DATA', JSON.stringify(translations))
+            localStorage.setItem('VUE_TRANSLATIONS_APP_METADATA', JSON.stringify(metadata))
+            
+            // Clean up
+            document.body.removeChild(input)
+            
+            resolve(importedCount)
+          } catch (error) {
+            document.body.removeChild(input)
+            reject(error)
+          }
+        }
+        
+        reader.onerror = () => {
+          document.body.removeChild(input)
+          reject(new Error('Failed to read file'))
+        }
+        
+        reader.readAsText(file)
+      }
+      
+      // Add input to DOM and trigger file selection
+      document.body.appendChild(input)
+      input.click()
+    })
+  }
 
 
   getXPath(element) {
@@ -423,7 +505,7 @@ export default {
   },
   setup() {
     // Reactive data
-    const showWidget = ref(true)
+    const showWidget = ref(false)
     const previewMode = ref(true)
     const position = ref({ x: 20, y: 20 })
     const isDragging = ref(false)
@@ -496,6 +578,26 @@ export default {
 
     const exportTranslationsHTML = () => {
       translationManager.exportTranslationsHTML()
+    }
+
+    const importTranslations = async () => {
+      try {
+        const importedCount = await translationManager.importTranslations()
+        
+        // Show success message
+        alert(`Successfully imported ${importedCount} translations!`)
+        
+        // If preview mode is on, refresh the translations on the page
+        if (previewMode.value) {
+          const elements = translationManager.getTranslatableElements()
+          elements.forEach(element => {
+            translationManager.applyTranslation(element)
+          })
+        }
+      } catch (error) {
+        console.error('Import failed:', error)
+        alert(`Import failed: ${error.message}`)
+      }
     }
 
     // Click to translate functionality
@@ -626,6 +728,7 @@ export default {
       toggleWidget,
       exportTranslations,
       exportTranslationsHTML,
+      importTranslations,
       openEditModal,
       onSaveTranslation
     }

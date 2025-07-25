@@ -485,6 +485,7 @@ class TranslationManager {
       element.onclick = null
       element.style.opacity = '0.7'
       element.style.cursor = 'pointer' // Keep pointer cursor for translation
+      element.style.pointerEvents = 'none' // Prevent blocking text nodes below
       element.setAttribute('data-translation-disabled', 'true')
       
       // For links, prevent navigation
@@ -518,6 +519,7 @@ class TranslationManager {
       // Re-enable the element
       element.style.opacity = ''
       element.style.cursor = ''
+      element.style.pointerEvents = '' // Restore original pointer-events
       element.removeAttribute('data-translation-disabled')
       
       // Restore button type if it was changed

@@ -478,6 +478,10 @@ class TranslationManager {
         return
       }
       
+      // Check if element has position: absolute
+      const computedStyle = window.getComputedStyle(element)
+      const hasAbsolutePosition = computedStyle.position === 'absolute'
+      
       // Store original click handler if it exists
       if (element.onclick || element._clickHandler) {
         this.originalActions.set(element, element.onclick || element._clickHandler)
@@ -492,7 +496,12 @@ class TranslationManager {
       element.onclick = null
       element.style.opacity = '0.7'
       element.style.cursor = 'pointer' // Keep pointer cursor for translation
-      element.style.pointerEvents = 'none' // Prevent blocking text nodes below
+      
+      // Only disable pointer events on elements with position: absolute
+      if (hasAbsolutePosition) {
+        element.style.pointerEvents = 'none' // Prevent blocking text nodes below
+      }
+      
       element.setAttribute('data-translation-disabled', 'true')
       
       // For links, prevent navigation

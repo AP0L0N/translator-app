@@ -131,9 +131,11 @@ class TranslationManager {
 
   async captureScreenshot(element) {
     try {
-      // Import html2canvas dynamically to avoid bundle size issues
-      const html2canvas = (await import('html2canvas')).default
-      
+      // Check if getDisplayMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        throw new Error('getDisplayMedia is not supported in this browser')
+      }
+
       // Temporarily hide any modals or overlays that might interfere
       const modals = document.querySelectorAll('.v-overlay, .v-dialog, .modal, [role="dialog"], .translation-widget .v-dialog')
       const originalStyles = []
@@ -142,36 +144,76 @@ class TranslationManager {
         originalStyles.push(modal.style.display)
         modal.style.display = 'none'
       })
-      
-      // Get element bounds
+
+      // Get element bounds relative to the viewport
       const rect = element.getBoundingClientRect()
+      const devicePixelRatio = window.devicePixelRatio || 1
       
-      // Create a 600x400 viewport centered on the element
-      const width = 600
-      const height = 400
-      const x = Math.max(0, rect.left + rect.width / 2 - width / 2)
-      const y = Math.max(0, rect.top + rect.height / 2 - height / 2)
-      
-      // Capture the screenshot
-      const canvas = await html2canvas(document.body, {
-        x: x,
-        y: y,
-        width: width,
-        height: height,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
+      // Request screen capture
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          mediaSource: 'screen'
+        }
       })
+
+      // Create video element to capture the stream
+      const video = document.createElement('video')
+      video.srcObject = stream
+      video.play()
+
+      // Wait for video to be ready
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          resolve()
+        }
+      })
+
+      // Create canvas to draw and crop the screenshot
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
       
+      // Set target dimensions for cropped image
+      const targetWidth = 600
+      const targetHeight = 400
+      canvas.width = targetWidth
+      canvas.height = targetHeight
+
+      // Calculate crop area centered on the clicked element
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+      
+      // Calculate source coordinates (accounting for device pixel ratio)
+      const sourceX = Math.max(0, (centerX - targetWidth / 2) * devicePixelRatio)
+      const sourceY = Math.max(0, (centerY - targetHeight / 2) * devicePixelRatio)
+      const sourceWidth = targetWidth * devicePixelRatio
+      const sourceHeight = targetHeight * devicePixelRatio
+
+      // Draw the cropped portion to canvas
+      ctx.drawImage(
+        video,
+        sourceX, sourceY, sourceWidth, sourceHeight,
+        0, 0, targetWidth, targetHeight
+      )
+
+      // Stop the stream
+      stream.getTracks().forEach(track => track.stop())
+
       // Restore modal visibility
       modals.forEach((modal, index) => {
         modal.style.display = originalStyles[index] || ''
       })
-      
+
       // Convert to base64
       return canvas.toDataURL('image/png')
     } catch (error) {
       console.warn('Failed to capture screenshot:', error)
+      
+      // Restore modal visibility in case of error
+      const modals = document.querySelectorAll('.v-overlay, .v-dialog, .modal, [role="dialog"], .translation-widget .v-dialog')
+      modals.forEach((modal, index) => {
+        modal.style.display = ''
+      })
+      
       return null
     }
   }

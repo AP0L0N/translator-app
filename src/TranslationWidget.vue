@@ -853,4 +853,21 @@ export default {
 .translation-widget * {
   box-sizing: border-box;
 }
+
+/* Disable pointer events on links and buttons with position absolute */
+a[style*="position: absolute"],
+a[style*="position:absolute"],
+button[style*="position: absolute"],
+button[style*="position:absolute"],
+.v-btn[style*="position: absolute"],
+.v-btn[style*="position:absolute"] {
+  pointer-events: none;
+}
+
+/* Also target elements with absolute positioning via CSS classes */
+a.position-absolute,
+button.position-absolute,
+.v-btn.position-absolute {
+  pointer-events: none;
+}
 </style>

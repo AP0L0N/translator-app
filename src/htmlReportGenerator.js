@@ -1,4 +1,15 @@
 export function generateHTMLReport(translations, metadata) {
+  // Helper function to escape HTML characters
+  const escapeHtml = (text) => {
+    if (typeof text !== 'string') return String(text)
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  }
+  
   const timestamp = new Date().toLocaleString()
   const totalTranslations = Object.keys(translations).length
   
@@ -6,6 +17,10 @@ export function generateHTMLReport(translations, metadata) {
   const translationCards = Object.keys(translations).map((originalText, index) => {
     const translation = translations[originalText]
     const meta = metadata[originalText] || {}
+    
+    // Escape HTML characters
+    const escapedOriginalText = escapeHtml(originalText)
+    const escapedTranslation = escapeHtml(translation)
     
     const navigationButton = meta.xpath && meta.uri 
       ? `<button class="navigation-btn" onclick="navigateToElement('${encodeURIComponent(meta.uri)}', '${encodeURIComponent(meta.xpath)}', '${encodeURIComponent(originalText)}')">
@@ -15,17 +30,17 @@ export function generateHTMLReport(translations, metadata) {
       : '<div class="no-navigation">Navigation not available</div>'
     
     return `
-      <div class="translation-card" data-search="${originalText.toLowerCase()} ${translation.toLowerCase()}">
+      <div class="translation-card" data-search="${escapeHtml(originalText.toLowerCase())} ${escapeHtml(translation.toLowerCase())}">
         <div class="translation-content">
           <div class="translation-header">
             <div class="text-section">
               <div class="original-text">
                 <strong>Original:</strong><br>
-                ${originalText}
+                ${escapedOriginalText}
               </div>
               <div class="translated-text">
                 <strong>Translation:</strong><br>
-                ${translation}
+                ${escapedTranslation}
               </div>
             </div>
             <div class="navigation-section">
@@ -325,109 +340,18 @@ export function generateHTMLReport(translations, metadata) {
                 const decodedXpath = decodeURIComponent(xpath)
                 const decodedOriginalText = decodeURIComponent(originalText)
                 
-                // Create a new window/tab with the target URL
-                const targetWindow = window.open(decodedUri, '_blank')
+                // Create URL with navigation parameters that the translation widget can read
+                const url = new URL(decodedUri)
+                url.searchParams.set('tw_navigate', 'true')
+                url.searchParams.set('tw_xpath', decodedXpath)
+                url.searchParams.set('tw_text', decodedOriginalText)
                 
-                // Give the page some time to load, then inject highlighting script
-                setTimeout(() => {
-                    try {
-                        // Inject a script to find and highlight the element
-                        const script = \`
-                            (function() {
-                                function getElementByXPath(xpath) {
-                                    return document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                                }
-                                
-                                function highlightElement(element, originalText) {
-                                    if (!element) return false;
-                                    
-                                    // Remove any existing highlights
-                                    const existing = document.querySelectorAll('.translation-highlight');
-                                    existing.forEach(el => {
-                                        el.style.border = '';
-                                        el.style.outline = '';
-                                        el.style.backgroundColor = '';
-                                        el.classList.remove('translation-highlight');
-                                    });
-                                    
-                                    // Add highlight styles
-                                    element.classList.add('translation-highlight');
-                                    element.style.border = '4px solid #FF6B6B';
-                                    element.style.outline = '2px solid #FFE66D';
-                                    element.style.backgroundColor = 'rgba(255, 107, 107, 0.1)';
-                                    element.style.transition = 'all 0.3s ease';
-                                    
-                                    // Scroll to element
-                                    element.scrollIntoView({ 
-                                        behavior: 'smooth', 
-                                        block: 'center',
-                                        inline: 'center'
-                                    });
-                                    
-                                    // Flash effect
-                                    let flashCount = 0;
-                                    const flashInterval = setInterval(() => {
-                                        element.style.backgroundColor = flashCount % 2 === 0 
-                                            ? 'rgba(255, 107, 107, 0.3)' 
-                                            : 'rgba(255, 107, 107, 0.1)';
-                                        flashCount++;
-                                        if (flashCount >= 6) {
-                                            clearInterval(flashInterval);
-                                            element.style.backgroundColor = 'rgba(255, 107, 107, 0.1)';
-                                        }
-                                    }, 300);
-                                    
-                                    return true;
-                                }
-                                
-                                // Try to find element by XPath
-                                let element = getElementByXPath("${decodedXpath}");
-                                
-                                if (element) {
-                                    highlightElement(element, "${decodedOriginalText}");
-                                } else {
-                                    // Fallback: try to find by text content
-                                    const walker = document.createTreeWalker(
-                                        document.body,
-                                        NodeFilter.SHOW_TEXT,
-                                        null,
-                                        false
-                                    );
-                                    
-                                    let textNode;
-                                    while (textNode = walker.nextNode()) {
-                                        if (textNode.textContent.includes("${decodedOriginalText}")) {
-                                            element = textNode.parentElement;
-                                            if (element) {
-                                                highlightElement(element, "${decodedOriginalText}");
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    
-                                    if (!element) {
-                                        alert('Could not locate the translated element on this page. The page structure may have changed.');
-                                    }
-                                }
-                            })();
-                        \`;
-                        
-                        // Execute the script in the target window
-                        targetWindow.eval(script);
-                    } catch (error) {
-                        console.error('Could not highlight element:', error);
-                        // Fallback: just show an alert
-                        setTimeout(() => {
-                            if (targetWindow && !targetWindow.closed) {
-                                targetWindow.alert('Page opened successfully! Look for the text: "' + decodedOriginalText + '"');
-                            }
-                        }, 1000);
-                    }
-                }, 2000); // Wait 2 seconds for page to load
+                // Open the page with navigation parameters
+                window.open(url.toString(), '_blank')
                 
             } catch (error) {
-                console.error('Navigation error:', error);
-                alert('Failed to navigate to element. Please check if the URL is accessible.');
+                console.error('Navigation error:', error)
+                alert('Failed to navigate to element. Please check if the URL is accessible.')
             }
         }
     </script>

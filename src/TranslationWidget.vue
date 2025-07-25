@@ -164,8 +164,27 @@ class TranslationManager {
       const translations = this.getTranslations()
       const metadata = this.getMetadata()
       
+      // Validate data before proceeding
+      if (!translations || typeof translations !== 'object') {
+        throw new Error('Invalid translations data')
+      }
+      
+      if (!metadata || typeof metadata !== 'object') {
+        throw new Error('Invalid metadata')
+      }
+      
+      // Check if there are any translations to export
+      if (Object.keys(translations).length === 0) {
+        alert('No translations found to export. Please add some translations first.')
+        return
+      }
+      
       // Generate HTML content
       const htmlContent = generateHTMLReport(translations, metadata)
+      
+      if (!htmlContent || typeof htmlContent !== 'string') {
+        throw new Error('Failed to generate HTML content')
+      }
       
       // Create and download the HTML file
       const blob = new Blob([htmlContent], { type: 'text/html' })
@@ -180,7 +199,7 @@ class TranslationManager {
       
     } catch (error) {
       console.error('Failed to export HTML:', error)
-      alert('Failed to export HTML file. Please try again.')
+      alert(`Failed to export HTML file: ${error.message}. Please try again.`)
     }
   }
 
@@ -486,6 +505,106 @@ export default {
     // Translation manager instance
     const translationManager = new TranslationManager()
 
+    // Navigation functionality
+    const checkNavigationParams = () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const shouldNavigate = urlParams.get('tw_navigate') === 'true'
+      const xpath = urlParams.get('tw_xpath')
+      const originalText = urlParams.get('tw_text')
+      
+      if (shouldNavigate && xpath && originalText) {
+        setTimeout(() => {
+          navigateToElement(xpath, originalText)
+        }, 1000) // Give the page time to load and translations to apply
+      }
+    }
+
+    const navigateToElement = (xpath, originalText) => {
+      try {
+        // Try to find element by XPath
+        let element = getElementByXPath(xpath)
+        
+        if (!element) {
+          // Fallback: try to find by text content
+          element = findElementByText(originalText)
+        }
+        
+        if (element) {
+          highlightElement(element)
+        } else {
+          console.warn('Could not locate the element for navigation')
+        }
+      } catch (error) {
+        console.error('Navigation error:', error)
+      }
+    }
+
+    const getElementByXPath = (xpath) => {
+      try {
+        return document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue
+      } catch (error) {
+        console.error('XPath evaluation failed:', error)
+        return null
+      }
+    }
+
+    const findElementByText = (text) => {
+      const walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      )
+      
+      let textNode
+      while (textNode = walker.nextNode()) {
+        if (textNode.textContent.includes(text)) {
+          return textNode.parentElement
+        }
+      }
+      return null
+    }
+
+    const highlightElement = (element) => {
+      if (!element) return
+      
+      // Remove any existing highlights
+      const existing = document.querySelectorAll('.translation-highlight')
+      existing.forEach(el => {
+        el.style.border = ''
+        el.style.outline = ''
+        el.style.backgroundColor = ''
+        el.classList.remove('translation-highlight')
+      })
+      
+      // Add highlight styles
+      element.classList.add('translation-highlight')
+      element.style.border = '4px solid #FF6B6B'
+      element.style.outline = '2px solid #FFE66D'
+      element.style.backgroundColor = 'rgba(255, 107, 107, 0.1)'
+      element.style.transition = 'all 0.3s ease'
+      
+      // Scroll to element
+      element.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center',
+        inline: 'center'
+      })
+      
+      // Flash effect
+      let flashCount = 0
+      const flashInterval = setInterval(() => {
+        element.style.backgroundColor = flashCount % 2 === 0 
+          ? 'rgba(255, 107, 107, 0.3)' 
+          : 'rgba(255, 107, 107, 0.1)'
+        flashCount++
+        if (flashCount >= 6) {
+          clearInterval(flashInterval)
+          element.style.backgroundColor = 'rgba(255, 107, 107, 0.1)'
+        }
+      }, 300)
+    }
+
     // Watch for preview mode changes
     watch(previewMode, (newValue) => {
       translationManager.togglePreviewMode(newValue)
@@ -696,6 +815,9 @@ export default {
       
       // Add keyboard event listener for spacebar activation
       document.addEventListener('keydown', handleKeydown)
+      
+      // Check for navigation parameters and navigate if needed
+      checkNavigationParams()
       
       // Re-add listeners when new content is added
       const observer = new MutationObserver(() => {

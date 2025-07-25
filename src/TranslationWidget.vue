@@ -656,9 +656,9 @@ export default {
       }
     }
 
-    // Keyboard event handling for spacebar activation
+    // Keyboard event handling for space-bar activation
     const handleKeydown = (event) => {
-      // Only listen for spacebar when widget is disabled
+      // Only listen for space-bar when widget is disabled
       if (!showWidget.value && event.code === 'Space') {
         // Check if user is not typing in an input field, textarea, or contenteditable element
         const activeElement = document.activeElement
@@ -813,7 +813,7 @@ export default {
         translationManager.disableInteractiveElements()
       }
       
-      // Add keyboard event listener for spacebar activation
+      // Add keyboard event listener for space-bar activation
       document.addEventListener('keydown', handleKeydown)
       
       // Check for navigation parameters and navigate if needed

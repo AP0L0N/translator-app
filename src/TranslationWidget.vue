@@ -102,7 +102,6 @@ class TranslationManager {
     this.previewMode = false
     this.originalTexts = new Map()
     this.originalActions = new Map() // Store original click handlers
-    this.screenshots = new Map() // Store screenshots for elements
   }
 
   getTranslations() {
@@ -121,65 +120,9 @@ class TranslationManager {
     }
   }
 
-  getScreenshots() {
-    try {
-      return JSON.parse(localStorage.getItem('VUE_TRANSLATIONS_APP_SCREENSHOTS') || '{}')
-    } catch {
-      return {}
-    }
-  }
-
-  async captureScreenshot(element) {
-    try {
-      // Import html2canvas dynamically to avoid bundle size issues
-      const html2canvas = (await import('html2canvas')).default
-      
-      // Temporarily hide any modals or overlays that might interfere
-      const modals = document.querySelectorAll('.v-overlay, .v-dialog, .modal, [role="dialog"], .translation-widget .v-dialog')
-      const originalStyles = []
-      
-      modals.forEach(modal => {
-        originalStyles.push(modal.style.display)
-        modal.style.display = 'none'
-      })
-      
-      // Get element bounds
-      const rect = element.getBoundingClientRect()
-      
-      // Create a 600x400 viewport centered on the element
-      const width = 600
-      const height = 400
-      const x = Math.max(0, rect.left + rect.width / 2 - width / 2)
-      const y = Math.max(0, rect.top + rect.height / 2 - height / 2)
-      
-      // Capture the screenshot
-      const canvas = await html2canvas(document.body, {
-        x: x,
-        y: y,
-        width: width,
-        height: height,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
-      })
-      
-      // Restore modal visibility
-      modals.forEach((modal, index) => {
-        modal.style.display = originalStyles[index] || ''
-      })
-      
-      // Convert to base64
-      return canvas.toDataURL('image/png')
-    } catch (error) {
-      console.warn('Failed to capture screenshot:', error)
-      return null
-    }
-  }
-
   saveTranslation(originalText, translatedText, element) {
     const translations = this.getTranslations()
     const metadata = this.getMetadata()
-    const screenshots = this.getScreenshots()
     
     translations[originalText] = translatedText
     
@@ -188,19 +131,6 @@ class TranslationManager {
         xpath: this.getXPath(element),
         uri: window.location.href
       }
-    }
-    
-    // Capture screenshot if not already captured
-    if (!screenshots[originalText]) {
-      // Delay screenshot capture to avoid modal overlay
-      setTimeout(() => {
-        this.captureScreenshot(element).then(screenshot => {
-          if (screenshot) {
-            screenshots[originalText] = screenshot
-            localStorage.setItem('VUE_TRANSLATIONS_APP_SCREENSHOTS', JSON.stringify(screenshots))
-          }
-        })
-      }, 500) // 0.5 second delay
     }
     
     localStorage.setItem('VUE_TRANSLATIONS_APP_DATA', JSON.stringify(translations))
@@ -233,27 +163,16 @@ class TranslationManager {
     try {
       const translations = this.getTranslations()
       const metadata = this.getMetadata()
-      const screenshots = this.getScreenshots()
-      
-      // Create a ZIP file to contain HTML and images
-      const JSZip = (await import('jszip')).default
-      const zip = new JSZip()
-      
-      // Create images folder
-      const imagesFolder = zip.folder('images')
       
       // Generate HTML content
-      const htmlContent = generateHTMLReport(translations, metadata, screenshots, imagesFolder)
+      const htmlContent = generateHTMLReport(translations, metadata)
       
-      // Add HTML file to zip
-      zip.file('translations_report.html', htmlContent)
-      
-      // Generate and download ZIP
-      const zipBlob = await zip.generateAsync({ type: 'blob' })
-      const url = URL.createObjectURL(zipBlob)
+      // Create and download the HTML file
+      const blob = new Blob([htmlContent], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'translations_with_screenshots.zip'
+      a.download = 'translations_report.html'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

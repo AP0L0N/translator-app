@@ -1,28 +1,18 @@
-export function generateHTMLReport(translations, metadata, screenshots, imagesFolder) {
+export function generateHTMLReport(translations, metadata) {
   const timestamp = new Date().toLocaleString()
   const totalTranslations = Object.keys(translations).length
-  
-  // Convert base64 screenshots to files and add to zip
-  Object.keys(screenshots).forEach((originalText, index) => {
-    const screenshot = screenshots[originalText]
-    if (screenshot) {
-      // Extract base64 data
-      const base64Data = screenshot.split(',')[1]
-      const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
-      imagesFolder.file(`screenshot_${index + 1}.png`, imageBuffer)
-    }
-  })
   
   // Generate translation cards HTML
   const translationCards = Object.keys(translations).map((originalText, index) => {
     const translation = translations[originalText]
     const meta = metadata[originalText] || {}
-    const screenshot = screenshots[originalText]
-    const hasScreenshot = screenshot && screenshot.length > 0
     
-    const screenshotHtml = hasScreenshot 
-      ? `<img src="images/screenshot_${index + 1}.png" alt="Screenshot" class="screenshot">`
-      : '<div class="no-screenshot">No screenshot available</div>'
+    const navigationButton = meta.xpath && meta.uri 
+      ? `<button class="navigation-btn" onclick="navigateToElement('${encodeURIComponent(meta.uri)}', '${encodeURIComponent(meta.xpath)}', '${encodeURIComponent(originalText)}')">
+           <span class="btn-icon">🎯</span>
+           <span class="btn-text">Go to Element</span>
+         </button>`
+      : '<div class="no-navigation">Navigation not available</div>'
     
     return `
       <div class="translation-card" data-search="${originalText.toLowerCase()} ${translation.toLowerCase()}">
@@ -38,8 +28,8 @@ export function generateHTMLReport(translations, metadata, screenshots, imagesFo
                 ${translation}
               </div>
             </div>
-            <div class="screenshot-section">
-              ${screenshotHtml}
+            <div class="navigation-section">
+              ${navigationButton}
             </div>
           </div>
           <div class="metadata">
@@ -182,17 +172,44 @@ export function generateHTMLReport(translations, metadata, screenshots, imagesFo
             border-left: 4px solid #28a745;
         }
         
-        .screenshot-section {
+        .navigation-section {
             margin-left: 20px;
             text-align: center;
+            display: flex;
+            align-items: center;
         }
         
-        .screenshot {
-            max-width: 300px;
-            max-height: 200px;
+        .navigation-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            border: 2px solid #e1e5e9;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .navigation-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .navigation-btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-icon {
+            font-size: 16px;
+        }
+        
+        .btn-text {
+            white-space: nowrap;
         }
         
         .metadata {
@@ -220,9 +237,13 @@ export function generateHTMLReport(translations, metadata, screenshots, imagesFo
             text-decoration: underline;
         }
         
-        .no-screenshot {
+        .no-navigation {
             color: #999;
             font-style: italic;
+            padding: 12px 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            text-align: center;
         }
         
         .hidden {
@@ -234,13 +255,15 @@ export function generateHTMLReport(translations, metadata, screenshots, imagesFo
                 flex-direction: column;
             }
             
-            .screenshot-section {
+            .navigation-section {
                 margin-left: 0;
                 margin-top: 15px;
+                justify-content: center;
             }
             
-            .screenshot {
-                max-width: 100%;
+            .navigation-btn {
+                width: 100%;
+                justify-content: center;
             }
         }
     </style>
@@ -258,8 +281,8 @@ export function generateHTMLReport(translations, metadata, screenshots, imagesFo
                 <div>Total Translations</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">${Object.keys(screenshots).filter(k => screenshots[k]).length}</div>
-                <div>Screenshots Captured</div>
+                <div class="stat-number">${Object.keys(metadata).filter(k => metadata[k]?.xpath && metadata[k]?.uri).length}</div>
+                <div>Navigable Elements</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number">${new Set(Object.values(metadata).map(m => m?.uri)).size}</div>
@@ -275,16 +298,17 @@ export function generateHTMLReport(translations, metadata, screenshots, imagesFo
             ${translationCards}
         </div>
     </div>
-    
+
     <script>
         // Search functionality
         const searchInput = document.getElementById('searchInput')
-        const translationCards = document.querySelectorAll('.translation-card')
+        const translationsGrid = document.getElementById('translationsGrid')
         
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase()
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase()
+            const cards = translationsGrid.querySelectorAll('.translation-card')
             
-            translationCards.forEach(card => {
+            cards.forEach(card => {
                 const searchData = card.getAttribute('data-search')
                 if (searchData.includes(searchTerm)) {
                     card.classList.remove('hidden')
@@ -294,20 +318,118 @@ export function generateHTMLReport(translations, metadata, screenshots, imagesFo
             })
         })
         
-        // Add some nice animations
-        document.addEventListener('DOMContentLoaded', function() {
-            const cards = document.querySelectorAll('.translation-card')
-            cards.forEach((card, index) => {
-                card.style.opacity = '0'
-                card.style.transform = 'translateY(20px)'
+        // Navigation functionality
+        function navigateToElement(uri, xpath, originalText) {
+            try {
+                const decodedUri = decodeURIComponent(uri)
+                const decodedXpath = decodeURIComponent(xpath)
+                const decodedOriginalText = decodeURIComponent(originalText)
                 
+                // Create a new window/tab with the target URL
+                const targetWindow = window.open(decodedUri, '_blank')
+                
+                // Give the page some time to load, then inject highlighting script
                 setTimeout(() => {
-                    card.style.transition = 'opacity 0.5s, transform 0.5s'
-                    card.style.opacity = '1'
-                    card.style.transform = 'translateY(0)'
-                }, index * 100)
-            })
-        })
+                    try {
+                        // Inject a script to find and highlight the element
+                        const script = \`
+                            (function() {
+                                function getElementByXPath(xpath) {
+                                    return document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                }
+                                
+                                function highlightElement(element, originalText) {
+                                    if (!element) return false;
+                                    
+                                    // Remove any existing highlights
+                                    const existing = document.querySelectorAll('.translation-highlight');
+                                    existing.forEach(el => {
+                                        el.style.border = '';
+                                        el.style.outline = '';
+                                        el.style.backgroundColor = '';
+                                        el.classList.remove('translation-highlight');
+                                    });
+                                    
+                                    // Add highlight styles
+                                    element.classList.add('translation-highlight');
+                                    element.style.border = '4px solid #FF6B6B';
+                                    element.style.outline = '2px solid #FFE66D';
+                                    element.style.backgroundColor = 'rgba(255, 107, 107, 0.1)';
+                                    element.style.transition = 'all 0.3s ease';
+                                    
+                                    // Scroll to element
+                                    element.scrollIntoView({ 
+                                        behavior: 'smooth', 
+                                        block: 'center',
+                                        inline: 'center'
+                                    });
+                                    
+                                    // Flash effect
+                                    let flashCount = 0;
+                                    const flashInterval = setInterval(() => {
+                                        element.style.backgroundColor = flashCount % 2 === 0 
+                                            ? 'rgba(255, 107, 107, 0.3)' 
+                                            : 'rgba(255, 107, 107, 0.1)';
+                                        flashCount++;
+                                        if (flashCount >= 6) {
+                                            clearInterval(flashInterval);
+                                            element.style.backgroundColor = 'rgba(255, 107, 107, 0.1)';
+                                        }
+                                    }, 300);
+                                    
+                                    return true;
+                                }
+                                
+                                // Try to find element by XPath
+                                let element = getElementByXPath("${decodedXpath}");
+                                
+                                if (element) {
+                                    highlightElement(element, "${decodedOriginalText}");
+                                } else {
+                                    // Fallback: try to find by text content
+                                    const walker = document.createTreeWalker(
+                                        document.body,
+                                        NodeFilter.SHOW_TEXT,
+                                        null,
+                                        false
+                                    );
+                                    
+                                    let textNode;
+                                    while (textNode = walker.nextNode()) {
+                                        if (textNode.textContent.includes("${decodedOriginalText}")) {
+                                            element = textNode.parentElement;
+                                            if (element) {
+                                                highlightElement(element, "${decodedOriginalText}");
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (!element) {
+                                        alert('Could not locate the translated element on this page. The page structure may have changed.');
+                                    }
+                                }
+                            })();
+                        \`;
+                        
+                        // Execute the script in the target window
+                        targetWindow.eval(script);
+                    } catch (error) {
+                        console.error('Could not highlight element:', error);
+                        // Fallback: just show an alert
+                        setTimeout(() => {
+                            if (targetWindow && !targetWindow.closed) {
+                                targetWindow.alert('Page opened successfully! Look for the text: "' + decodedOriginalText + '"');
+                            }
+                        }, 1000);
+                    }
+                }, 2000); // Wait 2 seconds for page to load
+                
+            } catch (error) {
+                console.error('Navigation error:', error);
+                alert('Failed to navigate to element. Please check if the URL is accessible.');
+            }
+        }
     </script>
 </body>
 </html>`

@@ -52,6 +52,7 @@
           color="grey"
           variant="text"
           @click="cancel"
+          class="translation-widget-button"
         >
           Cancel
         </v-btn>
@@ -60,6 +61,7 @@
           variant="elevated"
           :disabled="!translatedText.trim()"
           @click="save"
+          class="translation-widget-button"
         >
           <v-icon left>mdi-content-save</v-icon>
           Save Translation

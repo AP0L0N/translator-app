@@ -15,6 +15,7 @@
         <v-btn
           icon
           size="small"
+          class="translation-widget-button"
           @click="toggleWidget"
         >
           <v-icon>mdi-close</v-icon>
@@ -33,7 +34,7 @@
         <v-btn
           color="primary"
           block
-          class="mb-2"
+          class="mb-2 translation-widget-button"
           @click="exportTranslations"
         >
           <v-icon left>mdi-download</v-icon>
@@ -43,6 +44,7 @@
         <v-btn
           color="success"
           block
+          class="translation-widget-button"
           @click="exportTranslationsHTML"
         >
           <v-icon left>mdi-file-html-box</v-icon>
@@ -54,7 +56,7 @@
         <v-btn
           color="info"
           block
-          class="mb-2"
+          class="mb-2 translation-widget-button"
           @click="importTranslations"
         >
           <v-icon left>mdi-upload</v-icon>
@@ -66,7 +68,7 @@
     <!-- Show/hide toggle button when widget is hidden -->
     <v-btn
       v-show="!showWidget"
-      class="toggle-button"
+      class="toggle-button translation-widget-button"
       color="primary"
       fab
       small
@@ -465,6 +467,11 @@ class TranslationManager {
       if (element.closest('.translation-widget')) {
         return
       }
+
+      // Skip translation widget buttons
+      if (element.classList.contains('translation-widget-button')) {
+        return
+      }
       
       // Skip elements already disabled
       if (element.hasAttribute('data-translation-disabled')) {
@@ -599,6 +606,27 @@ export default {
       } else {
         // Widget is now inactive - re-enable interactive elements
         translationManager.enableInteractiveElements()
+      }
+    }
+
+    // Keyboard event handling for spacebar activation
+    const handleKeydown = (event) => {
+      // Only listen for spacebar when widget is disabled
+      if (!showWidget.value && event.code === 'Space') {
+        // Check if user is not typing in an input field, textarea, or contenteditable element
+        const activeElement = document.activeElement
+        const isTyping = activeElement && (
+          activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.contentEditable === 'true' ||
+          activeElement.isContentEditable
+        )
+        
+        // Don't activate if user is typing
+        if (!isTyping) {
+          event.preventDefault()
+          toggleWidget()
+        }
       }
     }
 
@@ -738,6 +766,9 @@ export default {
         translationManager.disableInteractiveElements()
       }
       
+      // Add keyboard event listener for spacebar activation
+      document.addEventListener('keydown', handleKeydown)
+      
       // Re-add listeners when new content is added
       const observer = new MutationObserver(() => {
         setTimeout(() => {
@@ -765,6 +796,8 @@ export default {
       removeClickListeners()
       translationManager.stopObserving()
       translationManager.enableInteractiveElements()
+      // Remove keyboard event listener
+      document.removeEventListener('keydown', handleKeydown)
     })
 
     return {

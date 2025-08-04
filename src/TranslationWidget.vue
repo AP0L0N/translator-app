@@ -62,6 +62,18 @@
           <v-icon left>mdi-upload</v-icon>
           Import JSON
         </v-btn>
+        
+        <v-divider class="my-3"></v-divider>
+        
+        <v-btn
+          color="error"
+          block
+          class="translation-widget-button"
+          @click="showClearConfirmation = true"
+        >
+          <v-icon left>mdi-delete</v-icon>
+          Clear translations
+        </v-btn>
       </v-card-text>
     </v-card>
 
@@ -86,6 +98,64 @@
       :existing-translation="existingTranslation"
       @save="onSaveTranslation"
     />
+
+    <!-- Clear All Confirmation Dialog -->
+    <v-dialog
+      v-model="showClearConfirmation"
+      max-width="500px"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h5 text-error">
+          <v-icon class="mr-3 text-error">mdi-alert</v-icon>
+          Clear All Translations
+        </v-card-title>
+
+        <v-card-text>
+          <v-alert
+            type="warning"
+            variant="tonal"
+            class="mb-4"
+          >
+            <v-icon slot="prepend">mdi-content-save-alert</v-icon>
+            <strong>Important:</strong> Please export/save your translations as JSON before proceeding. This action cannot be undone.
+          </v-alert>
+
+          <p class="text-body-1 mb-4">
+            This will permanently delete all translations from your browser's local storage. 
+            Are you sure you want to continue?
+          </p>
+
+          <v-text-field
+            v-model="confirmationText"
+            label="Type 'CONFIRM' to proceed"
+            variant="outlined"
+            :error="confirmationAttempted && confirmationText !== 'CONFIRM'"
+            :error-messages="confirmationAttempted && confirmationText !== 'CONFIRM' ? 'Please type CONFIRM exactly' : ''"
+          />
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="cancelClearConfirmation"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="error"
+            variant="elevated"
+            :disabled="confirmationText !== 'CONFIRM'"
+            @click="clearAllTranslations"
+          >
+            <v-icon left>mdi-delete</v-icon>
+            Clear All
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -547,6 +617,9 @@ export default {
     const selectedText = ref('')
     const selectedElement = ref(null)
     const existingTranslation = ref('')
+    const showClearConfirmation = ref(false)
+    const confirmationText = ref('')
+    const confirmationAttempted = ref(false)
 
     // Translation manager instance
     const translationManager = new TranslationManager()
@@ -754,6 +827,52 @@ export default {
       }
     }
 
+    const clearAllTranslations = () => {
+      if (confirmationText.value === 'CONFIRM') {
+        // Clear the localStorage
+        localStorage.removeItem('VUE_TRANSLATIONS_APP_DATA')
+        localStorage.removeItem('VUE_TRANSLATIONS_APP_METADATA')
+        
+        // Close the confirmation dialog
+        showClearConfirmation.value = false
+        confirmationText.value = ''
+        confirmationAttempted.value = false
+        
+        // Show success message
+        alert('All translations have been cleared successfully.')
+        
+        // Reload the page to refresh the UI
+        window.location.reload()
+      } else {
+        confirmationAttempted.value = true
+      }
+    }
+
+    const cancelClearConfirmation = () => {
+      showClearConfirmation.value = false
+      confirmationText.value = ''
+      confirmationAttempted.value = false
+    }
+
+    // ESC key handler for clear confirmation dialog
+    const handleEscKeyForClearDialog = (event) => {
+      if (event.key === 'Escape' && showClearConfirmation.value) {
+        cancelClearConfirmation()
+      }
+    }
+
+    // Watch for clear confirmation dialog state changes
+    watch(
+      () => showClearConfirmation.value,
+      (isOpen) => {
+        if (isOpen) {
+          document.addEventListener('keydown', handleEscKeyForClearDialog)
+        } else {
+          document.removeEventListener('keydown', handleEscKeyForClearDialog)
+        }
+      }
+    )
+
     // Click to translate functionality
     const handleElementClick = (element, event) => {
       // Skip translation widget's own elements
@@ -895,8 +1014,9 @@ export default {
       removeClickListeners()
       translationManager.stopObserving()
       translationManager.enableInteractiveElements()
-      // Remove keyboard event listener
+      // Remove keyboard event listeners
       document.removeEventListener('keydown', handleKeydown)
+      document.removeEventListener('keydown', handleEscKeyForClearDialog)
     })
 
     return {
@@ -906,11 +1026,16 @@ export default {
       showModal,
       selectedText,
       existingTranslation,
+      showClearConfirmation,
+      confirmationText,
+      confirmationAttempted,
       startDrag,
       toggleWidget,
       exportTranslations,
       exportTranslationsHTML,
       importTranslations,
+      clearAllTranslations,
+      cancelClearConfirmation,
       openEditModal,
       onSaveTranslation
     }

@@ -72,7 +72,7 @@
 </template>
 
 <script>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 
 export default {
   name: 'TranslationModal',
@@ -123,6 +123,36 @@ export default {
       emit('update:modelValue', false)
       translatedText.value = props.existingTranslation
     }
+
+    // ESC key handler
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && props.modelValue) {
+        // Check if there are unsaved changes
+        const hasUnsavedChanges = translatedText.value.trim() !== props.existingTranslation.trim()
+        
+        // Only close modal if there are no unsaved changes
+        if (!hasUnsavedChanges) {
+          cancel()
+        }
+      }
+    }
+
+    // Add/remove event listener when modal opens/closes
+    watch(
+      () => props.modelValue,
+      (isOpen) => {
+        if (isOpen) {
+          document.addEventListener('keydown', handleEscKey)
+        } else {
+          document.removeEventListener('keydown', handleEscKey)
+        }
+      }
+    )
+
+    // Cleanup on unmount
+    onUnmounted(() => {
+      document.removeEventListener('keydown', handleEscKey)
+    })
 
     return {
       translatedText,

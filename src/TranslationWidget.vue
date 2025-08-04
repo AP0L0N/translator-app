@@ -102,6 +102,9 @@ class TranslationManager {
     this.previewMode = false
     this.originalTexts = new Map()
     this.originalActions = new Map() // Store original click handlers
+    this.translatableElementsCache = null
+    this.lastCacheTime = 0
+    this.cacheTimeout = 1000 // Cache for 1 second
   }
 
   getTranslations() {
@@ -296,26 +299,66 @@ class TranslationManager {
   }
 
   getTranslatableElements() {
-    const selectors = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'th', 'td']
+    const now = Date.now()
+    
+    // Return cached results if cache is still valid
+    if (this.translatableElementsCache && (now - this.lastCacheTime) < this.cacheTimeout) {
+      return this.translatableElementsCache
+    }
+    
     const elements = []
     
-    selectors.forEach(selector => {
+    // Start with common text-containing elements for better performance
+    const commonSelectors = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'th', 'td', 'div', 'section', 'article', 'aside', 'header', 'footer', 'main', 'nav']
+    
+    commonSelectors.forEach(selector => {
       document.querySelectorAll(selector).forEach(element => {
+        // Skip if inside script or style tags
         if (element.closest('script') || element.closest('style')) return
         
-        const directText = Array.from(element.childNodes)
-          .filter(node => node.nodeType === Node.TEXT_NODE)
-          .map(node => node.textContent.trim())
-          .join(' ')
-          .trim()
+        // Skip translation widget's own elements
+        if (element.closest('.translation-widget')) return
         
-        if (directText.length > 0) {
-          elements.push(element)
+        // Get all text content (including from child elements)
+        const textContent = element.textContent.trim()
+        
+        // Only include elements that have text content
+        if (textContent.length > 0) {
+          // Check if this element has child elements with text
+          const hasChildElements = Array.from(element.children).some(child => child.textContent.trim().length > 0)
+          
+          // If element has child elements with text, skip it (we'll get the child elements instead)
+          // This prevents selecting parent containers when we want the actual text elements
+          if (hasChildElements) {
+            // Only include if this element also has direct text (not just from children)
+            const directText = Array.from(element.childNodes)
+              .filter(node => node.nodeType === Node.TEXT_NODE)
+              .map(node => node.textContent.trim())
+              .join(' ')
+              .trim()
+            
+            if (directText.length > 0) {
+              elements.push(element)
+            }
+          } else {
+            // Element has text but no child elements with text, include it
+            elements.push(element)
+          }
         }
       })
     })
     
+    // Cache the results
+    this.translatableElementsCache = elements
+    this.lastCacheTime = now
+    
     return elements
+  }
+  
+  // Clear cache when DOM changes significantly
+  clearCache() {
+    this.translatableElementsCache = null
+    this.lastCacheTime = 0
   }
 
   storeOriginalText(element) {
@@ -367,6 +410,9 @@ class TranslationManager {
     
     this.observer = new MutationObserver((mutations) => {
       if (!this.previewMode) return
+      
+      // Clear cache when DOM changes
+      this.clearCache()
       
       mutations.forEach(mutation => {
         mutation.addedNodes.forEach(node => {
@@ -821,6 +867,9 @@ export default {
       
       // Re-add listeners when new content is added
       const observer = new MutationObserver(() => {
+        // Clear cache when DOM changes
+        translationManager.clearCache()
+        
         setTimeout(() => {
           addClickListeners()
           // Also store original texts for new elements

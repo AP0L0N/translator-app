@@ -23,7 +23,7 @@ export function generateHTMLReport(translations, metadata) {
     const escapedTranslation = escapeHtml(translation)
     
     const navigationButton = meta.xpath && meta.uri 
-      ? `<button class="navigation-btn" onclick="navigateToElement('${encodeURIComponent(meta.uri)}', '${encodeURIComponent(meta.xpath)}', '${encodeURIComponent(originalText)}')">
+      ? `<button class="navigation-btn" data-uri="${escapeHtml(meta.uri)}" data-xpath="${escapeHtml(meta.xpath)}" data-text="${escapeHtml(originalText)}" onclick="navigateToElementSafe(this)">
            <span class="btn-icon">🎯</span>
            <span class="btn-text">Go to Element</span>
          </button>`
@@ -334,17 +334,23 @@ export function generateHTMLReport(translations, metadata) {
         })
         
         // Navigation functionality
-        function navigateToElement(uri, xpath, originalText) {
+        function navigateToElementSafe(button) {
             try {
-                const decodedUri = decodeURIComponent(uri)
-                const decodedXpath = decodeURIComponent(xpath)
-                const decodedOriginalText = decodeURIComponent(originalText)
+                const uri = button.getAttribute('data-uri')
+                const xpath = button.getAttribute('data-xpath')
+                const originalText = button.getAttribute('data-text')
+                
+                if (!uri || !xpath || !originalText) {
+                    console.error('Missing navigation data')
+                    alert('Navigation data is incomplete.')
+                    return
+                }
                 
                 // Create URL with navigation parameters that the translation widget can read
-                const url = new URL(decodedUri)
+                const url = new URL(uri)
                 url.searchParams.set('tw_navigate', 'true')
-                url.searchParams.set('tw_xpath', decodedXpath)
-                url.searchParams.set('tw_text', decodedOriginalText)
+                url.searchParams.set('tw_xpath', xpath)
+                url.searchParams.set('tw_text', originalText)
                 
                 // Open the page with navigation parameters
                 window.open(url.toString(), '_blank')

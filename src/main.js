@@ -115,7 +115,7 @@ export class TranslationManager {
     const elements = []
     
     // Start with common text-containing elements for better performance
-    const commonSelectors = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'th', 'td', 'div', 'section', 'article', 'aside', 'header', 'footer', 'main', 'nav']
+    const commonSelectors = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'th', 'td', 'div', 'section', 'article', 'aside', 'header', 'footer', 'main', 'nav', 'small', 'label']
     
     commonSelectors.forEach(selector => {
       document.querySelectorAll(selector).forEach(element => {
@@ -154,6 +154,14 @@ export class TranslationManager {
       })
     })
     
+    // Include inputs and textareas with placeholders (translate placeholder attribute)
+    const placeholderElements = document.querySelectorAll('input[placeholder], textarea[placeholder]')
+    placeholderElements.forEach(element => {
+      if (element.closest('.translation-widget')) return
+      if (element.closest('script') || element.closest('style')) return
+      elements.push(element)
+    })
+
     // Cache the results
     this.translatableElementsCache = elements
     this.lastCacheTime = now
@@ -169,7 +177,8 @@ export class TranslationManager {
 
   // Store original text content
   storeOriginalText(element) {
-    const text = element.textContent.trim()
+    const isInputWithPlaceholder = (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') && element.hasAttribute('placeholder')
+    const text = isInputWithPlaceholder ? (element.getAttribute('placeholder') || '').trim() : element.textContent.trim()
     if (!this.originalTexts.has(element)) {
       this.originalTexts.set(element, text)
     }
@@ -177,20 +186,30 @@ export class TranslationManager {
 
   // Apply translation to element
   applyTranslation(element) {
-    const originalText = this.originalTexts.get(element) || element.textContent.trim()
+    const isInputWithPlaceholder = (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') && element.hasAttribute('placeholder')
+    const originalText = this.originalTexts.get(element) || (isInputWithPlaceholder ? (element.getAttribute('placeholder') || '').trim() : element.textContent.trim())
     const translations = this.getTranslations()
     const translation = translations[originalText]
     
     if (translation) {
-      element.textContent = translation
+      if (isInputWithPlaceholder) {
+        element.setAttribute('placeholder', translation)
+      } else {
+        element.textContent = translation
+      }
     }
   }
 
   // Revert element to original text
   revertTranslation(element) {
+    const isInputWithPlaceholder = (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') && element.hasAttribute('placeholder')
     const originalText = this.originalTexts.get(element)
     if (originalText) {
-      element.textContent = originalText
+      if (isInputWithPlaceholder) {
+        element.setAttribute('placeholder', originalText)
+      } else {
+        element.textContent = originalText
+      }
     }
   }
 

@@ -31,6 +31,15 @@
           ></v-switch>
         </div>
         
+        <div class="d-flex align-center mb-3">
+          <v-switch
+            v-model="showUntranslatedBorders"
+            color="primary"
+            label="Show Untranslated Borders"
+            :disabled="false"
+          ></v-switch>
+        </div>
+        
         <v-btn
           color="primary"
           block
@@ -379,7 +388,7 @@ class TranslationManager {
     const elements = []
     
     // Start with common text-containing elements for better performance
-    const commonSelectors = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'th', 'td', 'div', 'section', 'article', 'aside', 'header', 'footer', 'main', 'nav']
+    const commonSelectors = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'th', 'td', 'div', 'section', 'article', 'aside', 'header', 'footer', 'main', 'nav', 'small', 'label']
     
     commonSelectors.forEach(selector => {
       document.querySelectorAll(selector).forEach(element => {
@@ -418,6 +427,16 @@ class TranslationManager {
       })
     })
     
+    // Include inputs and textareas with placeholders (translate placeholder attribute)
+    const placeholderElements = document.querySelectorAll('input[placeholder], textarea[placeholder]')
+    placeholderElements.forEach(element => {
+      // Skip translation widget's own elements
+      if (element.closest('.translation-widget')) return
+      // Skip if inside script or style tags
+      if (element.closest('script') || element.closest('style')) return
+      elements.push(element)
+    })
+
     // Cache the results
     this.translatableElementsCache = elements
     this.lastCacheTime = now
@@ -432,26 +451,37 @@ class TranslationManager {
   }
 
   storeOriginalText(element) {
-    const text = element.textContent.trim()
+    const isInputWithPlaceholder = (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') && element.hasAttribute('placeholder')
+    const text = isInputWithPlaceholder ? (element.getAttribute('placeholder') || '').trim() : element.textContent.trim()
     if (!this.originalTexts.has(element)) {
       this.originalTexts.set(element, text)
     }
   }
 
   applyTranslation(element) {
-    const originalText = this.originalTexts.get(element) || element.textContent.trim()
+    const isInputWithPlaceholder = (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') && element.hasAttribute('placeholder')
+    const originalText = this.originalTexts.get(element) || (isInputWithPlaceholder ? (element.getAttribute('placeholder') || '').trim() : element.textContent.trim())
     const translations = this.getTranslations()
     const translation = translations[originalText]
     
     if (translation) {
-      element.textContent = translation
+      if (isInputWithPlaceholder) {
+        element.setAttribute('placeholder', translation)
+      } else {
+        element.textContent = translation
+      }
     }
   }
 
   revertTranslation(element) {
+    const isInputWithPlaceholder = (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') && element.hasAttribute('placeholder')
     const originalText = this.originalTexts.get(element)
     if (originalText) {
-      element.textContent = originalText
+      if (isInputWithPlaceholder) {
+        element.setAttribute('placeholder', originalText)
+      } else {
+        element.textContent = originalText
+      }
     } else {
       console.warn('No original text found for element:', element)
     }
@@ -599,6 +629,45 @@ class TranslationManager {
       }
     })
   }
+
+  // Show borders around untranslated text nodes
+  showUntranslatedTextBorders() {
+    const elements = this.getTranslatableElements()
+    const translations = this.getTranslations()
+    
+    elements.forEach(element => {
+      // Skip translation widget's own elements
+      if (element.closest('.translation-widget')) return
+      
+      const originalText = this.originalTexts.get(element) || element.textContent.trim()
+      const hasTranslation = translations[originalText]
+      
+      if (!hasTranslation && originalText.length > 0) {
+        // Add border to untranslated elements
+        element.style.border = '2px dashed #2196F3'
+        element.setAttribute('data-untranslated-border', 'true')
+      }
+    })
+  }
+
+  // Hide borders around untranslated text nodes
+  hideUntranslatedTextBorders() {
+    const elements = document.querySelectorAll('[data-untranslated-border="true"]')
+    
+    elements.forEach(element => {
+      element.style.border = ''
+      element.removeAttribute('data-untranslated-border')
+    })
+  }
+
+  // Toggle borders around untranslated text nodes
+  toggleUntranslatedTextBorders(enabled) {
+    if (enabled) {
+      this.showUntranslatedTextBorders()
+    } else {
+      this.hideUntranslatedTextBorders()
+    }
+  }
 }
 
 export default {
@@ -610,6 +679,7 @@ export default {
     // Reactive data
     const showWidget = ref(false)
     const previewMode = ref(true)
+    const showUntranslatedBorders = ref(false)
     const position = ref({ x: 20, y: 20 })
     const isDragging = ref(false)
     const dragOffset = ref({ x: 0, y: 0 })
@@ -734,6 +804,11 @@ export default {
       }
     })
 
+    // Watch for untranslated borders toggle changes
+    watch(showUntranslatedBorders, (newValue) => {
+      translationManager.toggleUntranslatedTextBorders(newValue)
+    })
+
     // Dragging functionality
     const startDrag = (event) => {
       if (event.target.closest('.drag-handle')) {
@@ -820,6 +895,11 @@ export default {
           elements.forEach(element => {
             translationManager.applyTranslation(element)
           })
+        }
+        
+        // Update borders if they are enabled
+        if (showUntranslatedBorders.value) {
+          translationManager.toggleUntranslatedTextBorders(true)
         }
       } catch (error) {
         console.error('Import failed:', error)
@@ -930,6 +1010,11 @@ export default {
         if (previewMode.value) {
           translationManager.applyTranslation(selectedElement.value)
         }
+        
+        // Update borders if they are enabled
+        if (showUntranslatedBorders.value) {
+          translationManager.toggleUntranslatedTextBorders(true)
+        }
       }
       
       showModal.value = false
@@ -1022,6 +1107,7 @@ export default {
     return {
       showWidget,
       previewMode,
+      showUntranslatedBorders,
       position,
       showModal,
       selectedText,

@@ -12,9 +12,14 @@ export function generateHTMLReport(translations, metadata) {
   
   const timestamp = new Date().toLocaleString()
   const totalTranslations = Object.keys(translations).length
+
+  // Build categorized lists: element-bound vs custom (no xpath/uri metadata)
+  const allKeys = Object.keys(translations)
+  const elementBoundKeys = allKeys.filter(k => metadata[k]?.xpath && metadata[k]?.uri)
+  const customKeys = allKeys.filter(k => !(metadata[k]?.xpath && metadata[k]?.uri))
   
   // Generate translation cards HTML
-  const translationCards = Object.keys(translations).map((originalText, index) => {
+  const renderCard = (originalText) => {
     const translation = translations[originalText]
     const meta = metadata[originalText] || {}
     
@@ -54,7 +59,10 @@ export function generateHTMLReport(translations, metadata) {
         </div>
       </div>
     `
-  }).join('')
+  }
+
+  const elementBoundCards = elementBoundKeys.map(renderCard).join('')
+  const customCards = customKeys.map(renderCard).join('')
   
   return `<!DOCTYPE html>
 <html lang="en">
@@ -142,6 +150,11 @@ export function generateHTMLReport(translations, metadata) {
         .translations-grid {
             display: grid;
             gap: 20px;
+        }
+        .section-title {
+            margin: 16px 0 8px 0;
+            font-weight: 700;
+            color: #495057;
         }
         
         .translation-card {
@@ -296,8 +309,12 @@ export function generateHTMLReport(translations, metadata) {
                 <div>Total Translations</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">${Object.keys(metadata).filter(k => metadata[k]?.xpath && metadata[k]?.uri).length}</div>
-                <div>Navigable Elements</div>
+                <div class="stat-number">${elementBoundKeys.length}</div>
+                <div>Element-bound</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">${customKeys.length}</div>
+                <div>Custom (Global)</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number">${new Set(Object.values(metadata).map(m => m?.uri)).size}</div>
@@ -310,7 +327,10 @@ export function generateHTMLReport(translations, metadata) {
         </div>
         
         <div class="translations-grid" id="translationsGrid">
-            ${translationCards}
+            ${elementBoundCards ? `<h3 class="section-title">Element-bound Translations</h3>` : ''}
+            ${elementBoundCards}
+            ${customCards ? `<h3 class="section-title">Custom Translations</h3>` : ''}
+            ${customCards}
         </div>
     </div>
 

@@ -61,6 +61,18 @@
         </v-btn>
         
         <v-divider class="my-3"></v-divider>
+
+        <v-btn
+          color="secondary"
+          block
+          class="mb-2 translation-widget-button"
+          @click="showCustomModal = true"
+        >
+          <v-icon left>mdi-plus</v-icon>
+          Add Custom
+        </v-btn>
+
+        <v-divider class="my-3"></v-divider>
         
         <v-btn
           color="info"
@@ -165,6 +177,87 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Custom Translation Dialog -->
+    <v-dialog
+      v-model="showCustomModal"
+      max-width="600px"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h5">
+          <v-icon class="mr-3">mdi-translate</v-icon>
+          Add Custom
+        </v-card-title>
+
+        <v-card-text>
+          <div class="mb-4">
+            <v-label class="text-subtitle-1 font-weight-medium mb-2">
+              Original Text
+            </v-label>
+            <v-textarea
+              v-model="customOriginal"
+              placeholder="Enter the original text as it appears on the page"
+              variant="outlined"
+              rows="3"
+              auto-grow
+              counter
+            ></v-textarea>
+          </div>
+
+          <div>
+            <div class="d-flex align-center justify-space-between mb-2">
+              <v-label class="text-subtitle-1 font-weight-medium">
+                Translation
+              </v-label>
+              <v-btn
+                color="secondary"
+                variant="text"
+                size="small"
+                :disabled="!!customTranslation.trim() || !customOriginal.trim()"
+                @click="copyCustomOriginal"
+                class="translation-widget-button"
+              >
+                <v-icon left size="small">mdi-content-copy</v-icon>
+                Copy original
+              </v-btn>
+            </div>
+            <v-textarea
+              v-model="customTranslation"
+              placeholder="Enter the translation"
+              variant="outlined"
+              rows="4"
+              auto-grow
+              counter
+              @keydown.ctrl.enter="saveCustomTranslation"
+              @keydown.meta.enter="saveCustomTranslation"
+            ></v-textarea>
+          </div>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="cancelCustomTranslation"
+            class="translation-widget-button"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="elevated"
+            :disabled="!customOriginal.trim() || !customTranslation.trim()"
+            @click="saveCustomTranslation"
+            class="translation-widget-button"
+          >
+            <v-icon left>mdi-content-save</v-icon>
+            Save Translation
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -219,16 +312,37 @@ class TranslationManager {
     localStorage.setItem('VUE_TRANSLATIONS_APP_METADATA', JSON.stringify(metadata))
   }
 
+  // Save a custom translation not tied to any specific element
+  saveCustomTranslation(originalText, translatedText) {
+    const translations = this.getTranslations()
+    const metadata = this.getMetadata()
+
+    translations[originalText] = translatedText
+
+    // Ensure no element metadata is stored for this custom translation
+    if (metadata[originalText]) {
+      delete metadata[originalText]
+    }
+
+    localStorage.setItem('VUE_TRANSLATIONS_APP_DATA', JSON.stringify(translations))
+    localStorage.setItem('VUE_TRANSLATIONS_APP_METADATA', JSON.stringify(metadata))
+  }
+
   exportTranslations() {
     const translations = this.getTranslations()
     const metadata = this.getMetadata()
     
-    const exportData = Object.keys(translations).map(originalText => ({
-      originalText,
-      translatedText: translations[originalText],
-      xpath: metadata[originalText]?.xpath || '',
-      uri: metadata[originalText]?.uri || window.location.href
-    }))
+    const exportData = Object.keys(translations).map(originalText => {
+      const meta = metadata[originalText] || {}
+      const hasElementBinding = Boolean(meta.xpath && meta.uri)
+      return {
+        originalText,
+        translatedText: translations[originalText],
+        xpath: meta.xpath || '',
+        uri: meta.uri || '',
+        isCustom: !hasElementBinding
+      }
+    })
     
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -691,6 +805,11 @@ export default {
     const confirmationText = ref('')
     const confirmationAttempted = ref(false)
 
+    // Custom translation dialog state
+    const showCustomModal = ref(false)
+    const customOriginal = ref('')
+    const customTranslation = ref('')
+
     // Translation manager instance
     const translationManager = new TranslationManager()
 
@@ -928,6 +1047,49 @@ export default {
       }
     }
 
+    // Custom translation handlers
+    const saveCustomTranslation = () => {
+      const original = customOriginal.value.trim()
+      const translation = customTranslation.value.trim()
+      if (!original || !translation) return
+
+      translationManager.saveCustomTranslation(original, translation)
+
+      // Apply immediately if preview is on
+      if (previewMode.value) {
+        const elements = translationManager.getTranslatableElements()
+        elements.forEach(element => {
+          // Store original if not present (for elements not yet captured)
+          if (!translationManager.originalTexts.has(element)) {
+            translationManager.storeOriginalText(element)
+          }
+          translationManager.applyTranslation(element)
+        })
+      }
+
+      // Update borders if enabled
+      if (showUntranslatedBorders.value) {
+        translationManager.toggleUntranslatedTextBorders(true)
+      }
+
+      // Reset and close
+      showCustomModal.value = false
+      customOriginal.value = ''
+      customTranslation.value = ''
+    }
+
+    const cancelCustomTranslation = () => {
+      showCustomModal.value = false
+      customOriginal.value = ''
+      customTranslation.value = ''
+    }
+
+    const copyCustomOriginal = () => {
+      if (!customTranslation.value.trim() && customOriginal.value.trim()) {
+        customTranslation.value = customOriginal.value
+      }
+    }
+
     const cancelClearConfirmation = () => {
       showClearConfirmation.value = false
       confirmationText.value = ''
@@ -955,13 +1117,16 @@ export default {
 
     // Click to translate functionality
     const handleElementClick = (element, event) => {
-      // Skip translation widget's own elements
+      // Skip translation widget's own elements or any clicks originating inside it
       if (element.closest('.translation-widget')) {
         return
       }
+      if (event?.target && (event.target.closest && event.target.closest('.translation-widget'))) {
+        return
+      }
       
-      // Only handle clicks when widget is visible and modal is not open
-      if (!showWidget.value || showModal.value) {
+      // Only handle clicks when widget is visible and no dialogs are open
+      if (!showWidget.value || showModal.value || showCustomModal.value) {
         // Allow normal behavior when widget is hidden
         return
       }
@@ -1007,9 +1172,12 @@ export default {
         )
         
         // If preview mode is on, apply the translation immediately
-        if (previewMode.value) {
-          translationManager.applyTranslation(selectedElement.value)
-        }
+          if (previewMode.value) {
+            const elements = translationManager.getTranslatableElements()
+            elements.forEach(element => {
+              translationManager.applyTranslation(element)
+            })
+          }
         
         // Update borders if they are enabled
         if (showUntranslatedBorders.value) {
@@ -1029,6 +1197,10 @@ export default {
       
       elements.forEach(element => {
         element.addEventListener('click', (event) => {
+          // Ignore clicks originating from inside the widget (including custom modal)
+          if (event.target && event.target.closest && event.target.closest('.translation-widget')) {
+            return
+          }
           handleElementClick(element, event)
         })
       })
@@ -1122,6 +1294,13 @@ export default {
       importTranslations,
       clearAllTranslations,
       cancelClearConfirmation,
+      // Custom translations
+      showCustomModal,
+      customOriginal,
+      customTranslation,
+      saveCustomTranslation,
+      cancelCustomTranslation,
+      copyCustomOriginal,
       openEditModal,
       onSaveTranslation
     }

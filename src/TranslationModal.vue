@@ -25,9 +25,22 @@
         </div>
 
         <div>
-          <v-label class="text-subtitle-1 font-weight-medium mb-2">
-            Translation
-          </v-label>
+          <div class="d-flex align-center justify-space-between mb-2">
+            <v-label class="text-subtitle-1 font-weight-medium">
+              Translation
+            </v-label>
+            <v-btn
+              color="secondary"
+              variant="text"
+              size="small"
+              :disabled="!!translatedText.trim() || !originalText.trim()"
+              @click="copyOriginal"
+              class="translation-widget-button"
+            >
+              <v-icon left size="small">mdi-content-copy</v-icon>
+              Copy original
+            </v-btn>
+          </div>
           <v-textarea
             v-model="translatedText"
             placeholder="Enter your translation here..."
@@ -124,6 +137,12 @@ export default {
       translatedText.value = props.existingTranslation
     }
 
+    const copyOriginal = () => {
+      if (!translatedText.value.trim() && props.originalText.trim()) {
+        translatedText.value = props.originalText
+      }
+    }
+
     // ESC key handler
     const handleEscKey = (event) => {
       if (event.key === 'Escape' && props.modelValue) {
@@ -157,7 +176,8 @@ export default {
     return {
       translatedText,
       save,
-      cancel
+      cancel,
+      copyOriginal
     }
   }
 }

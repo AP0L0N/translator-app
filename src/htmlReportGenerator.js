@@ -46,7 +46,6 @@ export function generateHTMLReport(translations, metadata) {
     
     const removalBadge = translationData.markForRemoval 
       ? `<div class="removal-badge">
-           <v-icon>mdi-delete-outline</v-icon>
            Marked for Removal
          </div>`
       : ''

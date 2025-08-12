@@ -97,7 +97,7 @@
         <v-btn
           color="primary"
           variant="elevated"
-          :disabled="!translatedText.trim()"
+          :disabled="!(translatedText.trim() || markForRemoval)"
           @click="save"
           class="translation-widget-button"
         >
@@ -182,7 +182,7 @@ export default {
     )
 
     const save = () => {
-      if (translatedText.value.trim()) {
+      if (translatedText.value.trim() || markForRemoval.value) {
         emit('save', {
           translatedText: translatedText.value.trim(),
           extraNote: extraNote.value.trim(),

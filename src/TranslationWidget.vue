@@ -28,6 +28,7 @@
             v-model="previewMode"
             color="primary"
             label="Preview Mode"
+            hide-details="auto"
           ></v-switch>
         </div>
         
@@ -37,6 +38,7 @@
             color="primary"
             label="Show Untranslated Borders"
             :disabled="false"
+            hide-details="auto"
           ></v-switch>
         </div>
         
@@ -644,15 +646,18 @@ class TranslationManager {
 
   togglePreviewMode(enabled) {
     this.previewMode = enabled
-    const elements = this.getTranslatableElements()
-    
+    // When enabling preview, operate on current translatable elements.
+    // When disabling preview, operate on all elements we have original text for,
+    // including those that may currently be empty due to removal marking.
+    const elements = enabled
+      ? this.getTranslatableElements()
+      : Array.from(this.originalTexts.keys())
+
     elements.forEach(element => {
-      // Only store original text if we don't already have it
-      if (!this.originalTexts.has(element)) {
-        this.storeOriginalText(element)
-      }
-      
       if (enabled) {
+        if (!this.originalTexts.has(element)) {
+          this.storeOriginalText(element)
+        }
         this.applyTranslation(element)
       } else {
         this.revertTranslation(element)

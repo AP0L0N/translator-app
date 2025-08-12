@@ -63,11 +63,15 @@ export class TranslationManager {
   }
 
   // Save translation and metadata
-  saveTranslation(originalText, translatedText, element) {
+  saveTranslation(originalText, translatedText, element, extraNote = '', markForRemoval = false) {
     const translations = this.getTranslations()
     const metadata = this.getMetadata()
     
-    translations[originalText] = translatedText
+    translations[originalText] = {
+      translatedText,
+      extraNote,
+      markForRemoval
+    }
     
     if (!metadata[originalText]) {
       metadata[originalText] = {
@@ -80,17 +84,46 @@ export class TranslationManager {
     localStorage.setItem(STORAGE_KEYS.METADATA, JSON.stringify(metadata))
   }
 
+  // Helper method to get translation text (handles both old string format and new object format)
+  getTranslationText(translation) {
+    if (typeof translation === 'string') {
+      return translation
+    }
+    return translation?.translatedText || ''
+  }
+
+  // Helper method to get translation data (ensures object format)
+  getTranslationData(translation) {
+    if (typeof translation === 'string') {
+      return {
+        translatedText: translation,
+        extraNote: '',
+        markForRemoval: false
+      }
+    }
+    return {
+      translatedText: translation?.translatedText || '',
+      extraNote: translation?.extraNote || '',
+      markForRemoval: translation?.markForRemoval || false
+    }
+  }
+
   // Export translations as JSON
   exportTranslations() {
     const translations = this.getTranslations()
     const metadata = this.getMetadata()
     
-    const exportData = Object.keys(translations).map(originalText => ({
-      originalText,
-      translatedText: translations[originalText],
-      xpath: metadata[originalText]?.xpath || '',
-      uri: metadata[originalText]?.uri || window.location.href
-    }))
+    const exportData = Object.keys(translations).map(originalText => {
+      const translationData = this.getTranslationData(translations[originalText])
+      return {
+        originalText,
+        translatedText: translationData.translatedText,
+        extraNote: translationData.extraNote,
+        markForRemoval: translationData.markForRemoval,
+        xpath: metadata[originalText]?.xpath || '',
+        uri: metadata[originalText]?.uri || window.location.href
+      }
+    })
     
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -193,9 +226,9 @@ export class TranslationManager {
     
     if (translation) {
       if (isInputWithPlaceholder) {
-        element.setAttribute('placeholder', translation)
+        element.setAttribute('placeholder', this.getTranslationText(translation))
       } else {
-        element.textContent = translation
+        element.textContent = this.getTranslationText(translation)
       }
     }
   }

@@ -23,19 +23,43 @@ export function generateHTMLReport(translations, metadata) {
     const translation = translations[originalText]
     const meta = metadata[originalText] || {}
     
+    // Handle both old string format and new object format
+    const translationData = typeof translation === 'string' 
+      ? { translatedText: translation, extraNote: '', markForRemoval: false }
+      : { 
+          translatedText: translation?.translatedText || '', 
+          extraNote: translation?.extraNote || '', 
+          markForRemoval: translation?.markForRemoval || false 
+        }
+    
     // Escape HTML characters
     const escapedOriginalText = escapeHtml(originalText)
-    const escapedTranslation = escapeHtml(translation)
+    const escapedTranslation = escapeHtml(translationData.translatedText)
+    const escapedExtraNote = escapeHtml(translationData.extraNote)
     
     const navigationButton = meta.xpath && meta.uri 
-      ? `<button class="navigation-btn" data-uri="${escapeHtml(meta.uri)}" data-xpath="${escapeHtml(meta.xpath)}" data-text="${escapeHtml(originalText)}" onclick="navigateToElementSafe(this)">
+      ? `<button class="navigation-btn" data-uri="${escapeHtml(meta.uri)}" data-xpath="${escapeHtml(meta.xpath)}" data-text="${escapeHtml(originalText)}" data-note="${escapeHtml(translationData.extraNote)}" onclick="navigateToElementSafe(this)">
            <span class="btn-icon">🎯</span>
            <span class="btn-text">Go to Element</span>
          </button>`
       : '<div class="no-navigation">Navigation not available</div>'
     
+    const removalBadge = translationData.markForRemoval 
+      ? `<div class="removal-badge">
+           <v-icon>mdi-delete-outline</v-icon>
+           Marked for Removal
+         </div>`
+      : ''
+    
+    const extraNoteSection = translationData.extraNote 
+      ? `<div class="extra-note">
+           <strong>Note:</strong><br>
+           ${escapedExtraNote}
+         </div>`
+      : ''
+    
     return `
-      <div class="translation-card" data-search="${escapeHtml(originalText.toLowerCase())} ${escapeHtml(translation.toLowerCase())}">
+      <div class="translation-card ${translationData.markForRemoval ? 'marked-for-removal' : ''}" data-search="${escapeHtml(originalText.toLowerCase())} ${escapeHtml(translationData.translatedText.toLowerCase())} ${escapeHtml(translationData.extraNote.toLowerCase())}">
         <div class="translation-content">
           <div class="translation-header">
             <div class="text-section">
@@ -47,8 +71,10 @@ export function generateHTMLReport(translations, metadata) {
                 <strong>Translation:</strong><br>
                 ${escapedTranslation}
               </div>
+              ${extraNoteSection}
             </div>
             <div class="navigation-section">
+              ${removalBadge}
               ${navigationButton}
             </div>
           </div>
@@ -277,6 +303,34 @@ export function generateHTMLReport(translations, metadata) {
         .hidden {
             display: none;
         }
+
+        .removal-badge {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ef9a9a;
+        }
+
+        .extra-note {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .marked-for-removal {
+            border-left: 4px solid #dc3545;
+            background-color: #ffebee;
+        }
         
         @media (max-width: 768px) {
             .translation-header {
@@ -359,6 +413,7 @@ export function generateHTMLReport(translations, metadata) {
                 const uri = button.getAttribute('data-uri')
                 const xpath = button.getAttribute('data-xpath')
                 const originalText = button.getAttribute('data-text')
+                const extraNote = button.getAttribute('data-note')
                 
                 if (!uri || !xpath || !originalText) {
                     console.error('Missing navigation data')
@@ -371,6 +426,7 @@ export function generateHTMLReport(translations, metadata) {
                 url.searchParams.set('tw_navigate', 'true')
                 url.searchParams.set('tw_xpath', xpath)
                 url.searchParams.set('tw_text', originalText)
+                url.searchParams.set('tw_note', extraNote)
                 
                 // Open the page with navigation parameters
                 window.open(url.toString(), '_blank')

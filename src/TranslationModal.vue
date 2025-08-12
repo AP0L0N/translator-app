@@ -53,6 +53,31 @@
           ></v-textarea>
         </div>
 
+        <!-- Extra Note Field -->
+        <div class="mt-4">
+          <v-label class="text-subtitle-1 font-weight-medium mb-2">
+            Extra Note (Optional)
+          </v-label>
+          <v-textarea
+            v-model="extraNote"
+            placeholder="Add any additional notes about this translation..."
+            variant="outlined"
+            rows="2"
+            auto-grow
+            counter
+          ></v-textarea>
+        </div>
+
+        <!-- Mark for Removal Checkbox -->
+        <div class="mt-4">
+          <v-checkbox
+            v-model="markForRemoval"
+            color="warning"
+            label="Mark this text for removal"
+            hide-details
+          ></v-checkbox>
+        </div>
+
         <div class="text-caption text-grey">
           <v-icon size="small" class="mr-1">mdi-lightbulb-outline</v-icon>
           Tip: Press Ctrl+Enter (or Cmd+Enter) to save quickly
@@ -101,11 +126,21 @@ export default {
     existingTranslation: {
       type: String,
       default: ''
+    },
+    extraNote: {
+      type: String,
+      default: ''
+    },
+    markForRemoval: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['update:modelValue', 'save'],
   setup(props, { emit }) {
     const translatedText = ref('')
+    const extraNote = ref('')
+    const markForRemoval = ref(false)
 
     // Watch for existing translation changes and update the input
     watch(
@@ -116,25 +151,51 @@ export default {
       { immediate: true }
     )
 
+    // Watch for extra note changes and update the input
+    watch(
+      () => props.extraNote,
+      (newVal) => {
+        extraNote.value = newVal || ''
+      },
+      { immediate: true }
+    )
+
+    // Watch for mark for removal changes and update the input
+    watch(
+      () => props.markForRemoval,
+      (newVal) => {
+        markForRemoval.value = newVal || false
+      },
+      { immediate: true }
+    )
+
     // Reset when modal opens
     watch(
       () => props.modelValue,
       (isOpen) => {
         if (isOpen) {
           translatedText.value = props.existingTranslation
+          extraNote.value = props.extraNote || ''
+          markForRemoval.value = props.markForRemoval || false
         }
       }
     )
 
     const save = () => {
       if (translatedText.value.trim()) {
-        emit('save', translatedText.value.trim())
+        emit('save', {
+          translatedText: translatedText.value.trim(),
+          extraNote: extraNote.value.trim(),
+          markForRemoval: markForRemoval.value
+        })
       }
     }
 
     const cancel = () => {
       emit('update:modelValue', false)
       translatedText.value = props.existingTranslation
+      extraNote.value = props.extraNote || ''
+      markForRemoval.value = props.markForRemoval || false
     }
 
     const copyOriginal = () => {
@@ -145,36 +206,23 @@ export default {
 
     // ESC key handler
     const handleEscKey = (event) => {
-      if (event.key === 'Escape' && props.modelValue) {
-        // Check if there are unsaved changes
-        const hasUnsavedChanges = translatedText.value.trim() !== props.existingTranslation.trim()
-        
-        // Only close modal if there are no unsaved changes
-        if (!hasUnsavedChanges) {
-          cancel()
-        }
+      if (event.key === 'Escape') {
+        cancel()
       }
     }
 
-    // Add/remove event listener when modal opens/closes
-    watch(
-      () => props.modelValue,
-      (isOpen) => {
-        if (isOpen) {
-          document.addEventListener('keydown', handleEscKey)
-        } else {
-          document.removeEventListener('keydown', handleEscKey)
-        }
-      }
-    )
+    onMounted(() => {
+      document.addEventListener('keydown', handleEscKey)
+    })
 
-    // Cleanup on unmount
     onUnmounted(() => {
       document.removeEventListener('keydown', handleEscKey)
     })
 
     return {
       translatedText,
+      extraNote,
+      markForRemoval,
       save,
       cancel,
       copyOriginal

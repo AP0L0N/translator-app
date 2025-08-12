@@ -117,6 +117,8 @@
       v-model="showModal"
       :original-text="selectedText"
       :existing-translation="existingTranslation"
+      :extra-note="existingExtraNote"
+      :mark-for-removal="existingMarkForRemoval"
       @save="onSaveTranslation"
     />
 
@@ -295,11 +297,15 @@ class TranslationManager {
     }
   }
 
-  saveTranslation(originalText, translatedText, element) {
+  saveTranslation(originalText, translatedText, element, extraNote = '', markForRemoval = false) {
     const translations = this.getTranslations()
     const metadata = this.getMetadata()
     
-    translations[originalText] = translatedText
+    translations[originalText] = {
+      translatedText,
+      extraNote,
+      markForRemoval
+    }
     
     if (!metadata[originalText]) {
       metadata[originalText] = {
@@ -317,7 +323,11 @@ class TranslationManager {
     const translations = this.getTranslations()
     const metadata = this.getMetadata()
 
-    translations[originalText] = translatedText
+    translations[originalText] = {
+      translatedText,
+      extraNote: '',
+      markForRemoval: false
+    }
 
     // Ensure no element metadata is stored for this custom translation
     if (metadata[originalText]) {
@@ -328,6 +338,30 @@ class TranslationManager {
     localStorage.setItem('VUE_TRANSLATIONS_APP_METADATA', JSON.stringify(metadata))
   }
 
+  // Helper method to get translation text (handles both old string format and new object format)
+  getTranslationText(translation) {
+    if (typeof translation === 'string') {
+      return translation
+    }
+    return translation?.translatedText || ''
+  }
+
+  // Helper method to get translation data (ensures object format)
+  getTranslationData(translation) {
+    if (typeof translation === 'string') {
+      return {
+        translatedText: translation,
+        extraNote: '',
+        markForRemoval: false
+      }
+    }
+    return {
+      translatedText: translation?.translatedText || '',
+      extraNote: translation?.extraNote || '',
+      markForRemoval: translation?.markForRemoval || false
+    }
+  }
+
   exportTranslations() {
     const translations = this.getTranslations()
     const metadata = this.getMetadata()
@@ -335,9 +369,12 @@ class TranslationManager {
     const exportData = Object.keys(translations).map(originalText => {
       const meta = metadata[originalText] || {}
       const hasElementBinding = Boolean(meta.xpath && meta.uri)
+      const translationData = this.getTranslationData(translations[originalText])
       return {
         originalText,
-        translatedText: translations[originalText],
+        translatedText: translationData.translatedText,
+        extraNote: translationData.extraNote,
+        markForRemoval: translationData.markForRemoval,
         xpath: meta.xpath || '',
         uri: meta.uri || '',
         isCustom: !hasElementBinding
@@ -429,7 +466,11 @@ class TranslationManager {
             
             importData.forEach(item => {
               if (item.originalText && item.translatedText) {
-                translations[item.originalText] = item.translatedText
+                translations[item.originalText] = {
+                  translatedText: item.translatedText,
+                  extraNote: item.extraNote || '',
+                  markForRemoval: item.markForRemoval || false
+                }
                 importedCount++
                 
                 // Import metadata if available
@@ -580,9 +621,9 @@ class TranslationManager {
     
     if (translation) {
       if (isInputWithPlaceholder) {
-        element.setAttribute('placeholder', translation)
+        element.setAttribute('placeholder', this.getTranslationText(translation))
       } else {
-        element.textContent = translation
+        element.textContent = this.getTranslationText(translation)
       }
     }
   }
@@ -801,6 +842,8 @@ export default {
     const selectedText = ref('')
     const selectedElement = ref(null)
     const existingTranslation = ref('')
+    const existingExtraNote = ref('')
+    const existingMarkForRemoval = ref(false)
     const showClearConfirmation = ref(false)
     const confirmationText = ref('')
     const confirmationAttempted = ref(false)
@@ -819,15 +862,16 @@ export default {
       const shouldNavigate = urlParams.get('tw_navigate') === 'true'
       const xpath = urlParams.get('tw_xpath')
       const originalText = urlParams.get('tw_text')
+      const extraNote = urlParams.get('tw_note')
       
       if (shouldNavigate && xpath && originalText) {
         setTimeout(() => {
-          navigateToElement(xpath, originalText)
+          navigateToElement(xpath, originalText, extraNote)
         }, 1000) // Give the page time to load and translations to apply
       }
     }
 
-    const navigateToElement = (xpath, originalText) => {
+    const navigateToElement = (xpath, originalText, extraNote = '') => {
       try {
         // Try to find element by XPath
         let element = getElementByXPath(xpath)
@@ -838,7 +882,7 @@ export default {
         }
         
         if (element) {
-          highlightElement(element)
+          highlightElement(element, extraNote)
         } else {
           console.warn('Could not locate the element for navigation')
         }
@@ -873,10 +917,10 @@ export default {
       return null
     }
 
-    const highlightElement = (element) => {
+    const highlightElement = (element, extraNote = '') => {
       if (!element) return
       
-      // Remove any existing highlights
+      // Remove any existing highlights and notes
       const existing = document.querySelectorAll('.translation-highlight')
       existing.forEach(el => {
         el.style.border = ''
@@ -885,12 +929,67 @@ export default {
         el.classList.remove('translation-highlight')
       })
       
+      // Remove any existing note tooltips
+      const existingNotes = document.querySelectorAll('.translation-note-tooltip')
+      existingNotes.forEach(el => el.remove())
+      
       // Add highlight styles
       element.classList.add('translation-highlight')
       element.style.border = '4px solid #FF6B6B'
       element.style.outline = '2px solid #FFE66D'
       element.style.backgroundColor = 'rgba(255, 107, 107, 0.1)'
       element.style.transition = 'all 0.3s ease'
+      element.style.position = 'relative'
+      
+      // Add note tooltip if extraNote exists
+      if (extraNote && extraNote.trim()) {
+        const noteTooltip = document.createElement('div')
+        noteTooltip.className = 'translation-note-tooltip'
+        noteTooltip.innerHTML = `
+          <div style="
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2196F3;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            max-width: 300px;
+            white-space: normal;
+            z-index: 10000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 2px solid #1976D2;
+          ">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px;">📝</span>
+              <strong>Note:</strong> ${extraNote}
+            </div>
+            <div style="
+              position: absolute;
+              bottom: -8px;
+              left: 50%;
+              transform: translateX(-50%);
+              width: 0;
+              height: 0;
+              border-left: 8px solid transparent;
+              border-right: 8px solid transparent;
+              border-top: 8px solid #2196F3;
+            "></div>
+          </div>
+        `
+        element.appendChild(noteTooltip)
+        
+        // Auto-remove note after 10 seconds
+        setTimeout(() => {
+          if (noteTooltip.parentNode) {
+            noteTooltip.parentNode.removeChild(noteTooltip)
+          }
+        }, 10000)
+      }
       
       // Scroll to element
       element.scrollIntoView({ 
@@ -1158,37 +1257,50 @@ export default {
       selectedText.value = originalText
       
       const translations = translationManager.getTranslations()
-      existingTranslation.value = translations[originalText] || ''
+      const translationData = translationManager.getTranslationData(translations[originalText])
+      
+      existingTranslation.value = translationData.translatedText
+      existingExtraNote.value = translationData.extraNote
+      existingMarkForRemoval.value = translationData.markForRemoval
       
       showModal.value = true
     }
 
-    const onSaveTranslation = (translatedText) => {
+    const onSaveTranslation = (data) => {
       if (selectedElement.value && selectedText.value) {
         translationManager.saveTranslation(
           selectedText.value,
-          translatedText,
-          selectedElement.value
+          data.translatedText,
+          selectedElement.value,
+          data.extraNote,
+          data.markForRemoval
         )
         
         // If preview mode is on, apply the translation immediately
-          if (previewMode.value) {
-            const elements = translationManager.getTranslatableElements()
-            elements.forEach(element => {
-              translationManager.applyTranslation(element)
-            })
-          }
-        
-        // Update borders if they are enabled
-        if (showUntranslatedBorders.value) {
-          translationManager.toggleUntranslatedTextBorders(true)
+        if (previewMode.value) {
+          translationManager.applyTranslation(selectedElement.value)
         }
+        
+        // Show success feedback
+        const successDiv = document.createElement('div')
+        successDiv.innerHTML = `
+          <div style="position: fixed; top: 50px; left: 50%; transform: translateX(-50%); background: #4CAF50; color: white; padding: 16px 24px; border-radius: 8px; font-weight: 500; z-index: 9999; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 18px;">✓</span>
+              Translation saved successfully!
+            </div>
+          </div>
+        `
+        document.body.appendChild(successDiv)
+        setTimeout(() => document.body.removeChild(successDiv), 3000)
       }
       
       showModal.value = false
       selectedElement.value = null
       selectedText.value = ''
       existingTranslation.value = ''
+      existingExtraNote.value = ''
+      existingMarkForRemoval.value = false
     }
 
     // Add click listeners to translatable elements
@@ -1284,6 +1396,8 @@ export default {
       showModal,
       selectedText,
       existingTranslation,
+      existingExtraNote,
+      existingMarkForRemoval,
       showClearConfirmation,
       confirmationText,
       confirmationAttempted,
@@ -1293,8 +1407,6 @@ export default {
       exportTranslationsHTML,
       importTranslations,
       clearAllTranslations,
-      cancelClearConfirmation,
-      // Custom translations
       showCustomModal,
       customOriginal,
       customTranslation,

@@ -922,6 +922,16 @@ export default {
       return null
     }
 
+    // Detect Alpine.js-bound elements (e.g., x-text, x-html, etc.)
+    const hasAlpineAttribute = (element) => {
+      if (!element || !element.getAttributeNames) return false
+      try {
+        return element.getAttributeNames().some((name) => name.startsWith('x-'))
+      } catch (e) {
+        return false
+      }
+    }
+
     const highlightElement = (element, extraNote = '') => {
       if (!element) return
       
@@ -1075,22 +1085,25 @@ export default {
 
     // Keyboard event handling for space-bar activation
     const handleKeydown = (event) => {
-      // Only listen for space-bar when widget is disabled
-      if (!showWidget.value && event.code === 'Space') {
-        // Check if user is not typing in an input field, textarea, or contenteditable element
-        const activeElement = document.activeElement
-        const isTyping = activeElement && (
-          activeElement.tagName === 'INPUT' ||
-          activeElement.tagName === 'TEXTAREA' ||
-          activeElement.contentEditable === 'true' ||
-          activeElement.isContentEditable
-        )
-        
-        // Don't activate if user is typing
-        if (!isTyping) {
-          event.preventDefault()
-          toggleWidget()
-        }
+      // Check if user is not typing in an input field, textarea, or contenteditable element
+      const activeElement = document.activeElement
+      const isTyping = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.contentEditable === 'true' ||
+        activeElement.isContentEditable
+      )
+      
+      // Don't handle shortcuts if user is typing
+      if (isTyping) {
+        return
+      }
+      
+      // Ctrl+Space (or Cmd+Space on Mac) to close widget when open
+      if (event.code === 'Space' && event.shiftKey) {
+        event.preventDefault()
+        toggleWidget()
+        return
       }
     }
 
@@ -1257,8 +1270,13 @@ export default {
     const openEditModal = (element) => {
       selectedElement.value = element
       
-      // Always get the original text, not the current displayed text
-      const originalText = translationManager.originalTexts.get(element) || element.textContent.trim()
+      // For Alpine.js-bound nodes, use the current text (dynamic); otherwise use cached original
+      let originalText
+      if (hasAlpineAttribute(element)) {
+        originalText = element.textContent.trim()
+      } else {
+        originalText = translationManager.originalTexts.get(element) || element.textContent.trim()
+      }
       selectedText.value = originalText
       
       const translations = translationManager.getTranslations()

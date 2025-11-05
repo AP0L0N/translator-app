@@ -1,227 +1,196 @@
 # Website Translation Widget
 
-A self-contained, embeddable website translation widget built with Vue.js 3 and Vuetify 3. This widget allows translators to hover over text elements on any website, edit them in a modal, and see live previews of their translations.
+A self-contained, embeddable translation widget built with Vue 3 and Vuetify 3. It lets translators click any on‑page text, edit its translation in a modal, and immediately preview the result. Translations are stored locally in the browser and can be exported/imported.
 
-## Features
+## What’s inside (feature highlights)
 
-- 🖱️ **Hover to Edit**: Hover over any text element to see an edit icon
-- ✏️ **Translation Modal**: Click to open a clean modal with original text and translation input
-- 👁️ **Live Preview**: Toggle preview mode to see translations applied in real-time
-- 💾 **Local Storage**: All translations are saved locally in the browser
-- 📄 **Export Functionality**: Download translations as a JSON file
-- 🔄 **Dynamic Content Support**: Automatically detects and handles dynamically added content
-- 🎯 **Element Targeting**: Supports p, h1-h6, span, a, li, button, th, td elements
-- 📊 **XPath Generation**: Generates unique XPaths for precise element identification
+- Live Preview mode (on by default) applying translations immediately
+- Click-to-edit modal with original text, translation, extra note, and “Mark for removal”
+- Show borders around untranslated content for quick scanning
+- Disable/restore interactive elements while the widget is active (safe editing)
+- JSON export and import of translations (with metadata)
+- HTML report export summarizing the current translation set
+- Custom translations not bound to a specific element
+- Deep-link navigation to a specific element via URL parameters
+- Input/textarea placeholder translation support
+- Robust handling of dynamically added content (MutationObserver)
+- Keyboard shortcuts for fast workflows
 
 ## Quick Start
 
-### 1. Include the Widget Files
+### 1) Development (recommended for local changes)
 
-Add these two lines to your website's HTML:
-
-```html
-<!-- Include the CSS -->
-<link rel="stylesheet" href="path/to/translation-widget.css">
-
-<!-- Include the JavaScript (place before closing </body> tag) -->
-<script src="path/to/translation-widget.iife.js"></script>
+```bash
+cd translator-app
+npm install
+npm run dev
 ```
 
-### 2. That's it!
+Open the local dev URL shown in your terminal.
 
-The widget will automatically initialize when the page loads. You'll see a floating translation panel in the top-left corner.
+### 2) Production build
 
-## How to Use
+```bash
+npm run build
+```
 
-### For Translators
+The build produces:
+- `dist/translation-widget.iife.js` (JavaScript bundle)
+- `dist/translation-widget.css` (styles)
 
-1. **Hover over text**: Move your mouse over any text element (headings, paragraphs, buttons, links, etc.)
-2. **Click the edit icon**: A small pencil icon will appear - click it
-3. **Enter translation**: In the modal, enter your translation in the textarea
-4. **Save**: Click "Save Translation" or press Ctrl+Enter (Cmd+Enter on Mac)
-5. **Preview**: Toggle "Preview Mode" to see your translations applied to the page
-6. **Export**: Click "Export Translations" to download your work as a JSON file
+Include both on any page you want to translate:
 
-### Preview Mode
+```html
+<!-- In <head> -->
+<link rel="stylesheet" href="translation-widget.css">
 
-When preview mode is enabled:
-- All translated text is immediately replaced on the page
-- New content added to the page is automatically translated if a translation exists
-- Toggle off to see the original text
+<!-- Before </body> -->
+<script src="translation-widget.iife.js"></script>
+```
 
-### Export Format
+Once included, the floating widget appears (top-left by default). You can also show/hide it with Shift+Space.
 
-The exported JSON file contains an array of translation objects:
+## How to use (overview)
+
+1. Show the widget: click the floating Translate button or press Shift+Space.
+2. Ensure “Preview Mode” is on to see live updates.
+3. Click any text element to open the modal.
+4. Enter your translation. Optionally add an Extra note or mark the original for removal.
+5. Save (click Save or press Ctrl+Enter / Cmd+Enter).
+6. Use “Show Untranslated Borders” to highlight remaining untranslated content.
+7. Export/Import JSON at any time. Export an HTML report for sharing.
+8. Add “Custom” translations for strings that don’t exist on the current page.
+9. If needed, clear all translations (requires typing CONFIRM).
+
+For translator-oriented step-by-step instructions, see:
+- `intructions/english.md`
+- `intructions/slovenian.md`
+
+## Keyboard shortcuts
+
+- Shift+Space: Toggle widget visibility
+- Ctrl+Enter (Cmd+Enter on macOS): Save in the modal or custom dialog
+- Esc: Close/cancel dialogs
+
+## Export / Import
+
+### JSON Export
+
+Click “Export JSON” to download `translations.json`. Each entry includes content and metadata:
 
 ```json
 [
   {
     "originalText": "Welcome to our website!",
     "translatedText": "Willkommen auf unserer Webseite!",
+    "extraNote": "Homepage hero",
+    "markForRemoval": false,
     "xpath": "/html/body/main/h1",
-    "uri": "https://example.com/page"
+    "uri": "https://example.com/page",
+    "isCustom": false
   }
 ]
 ```
 
-## Development
+Notes:
+- `isCustom` is true if the translation is not bound to a specific element.
+- `xpath` and `uri` are provided when the text is associated with a page element.
 
-### Prerequisites
+### JSON Import
 
-- Node.js 16+ 
-- npm or yarn
+Click “Import JSON” and select a file containing an array of objects with at least `originalText` and `translatedText`.
 
-### Setup
+- When metadata fields (`xpath`, `uri`) are present, they are imported as well.
+- After a successful import, if Preview Mode is on, the page updates immediately.
+
+### HTML Report Export
+
+Click “Export HTML” to download a formatted HTML report generated from the current translations and metadata (via `generateHTMLReport`).
+
+## Deep-link navigation
+
+You can directly navigate and highlight an element when the page loads using URL params:
+
+- `tw_navigate=true` (enable navigation)
+- `tw_xpath` (preferred) – the element XPath
+- `tw_text` – original text fallback when XPath is missing or fails
+- `tw_note` – an optional note shown in a tooltip near the highlighted element
+
+Example:
+
+```
+https://example.com/page?tw_navigate=true&tw_xpath=/html/body/main/h1&tw_text=Welcome&tw_note=Please%20check%20terminology
+```
+
+On load, the widget attempts to find the element by XPath, falls back to searching by text if needed, scrolls it into view, and briefly highlights it (showing the optional note).
+
+## How it works (technical)
+
+The widget core logic lives in `src/TranslationWidget.vue` and the edit dialog in `src/TranslationModal.vue`.
+
+- Preview Mode: When enabled, the widget identifies translatable elements and applies translations found in localStorage. Disabling preview reverts all elements to their original text.
+- Element set: Elements with text content are targeted (e.g., `p`, `h1`–`h6`, `span`, `a`, `li`, `button`, `th`, `td`, `div`, `section`, `article`, `aside`, `header`, `footer`, `main`, `nav`, `small`, `label`) and inputs/textareas via `placeholder`.
+- Dynamic content: A `MutationObserver` tracks DOM changes; new content is scanned and translated automatically when Preview Mode is on.
+- Interaction safety: While the widget is visible, links/buttons are visually dimmed and prevented from navigating/submitting (with hrefs/click handlers restored when the widget hides). Absolutely positioned elements keep pointer events off to avoid blocking text nodes below.
+- Original text capture: Original values (including placeholders) are cached so the widget can revert precisely.
+- Alpine.js compatibility: If an element has `x-*` attributes, the widget uses its current rendered text when opening the modal.
+
+## Storage and data format
+
+The widget uses localStorage:
+
+- `VUE_TRANSLATIONS_APP_DATA` – object map of `originalText -> translationValue`
+  - `translationValue` can be a string (legacy) or an object:
+    ```json
+    {
+      "translatedText": "...",
+      "extraNote": "...",
+      "markForRemoval": false
+    }
+    ```
+- `VUE_TRANSLATIONS_APP_METADATA` – per-originalText metadata with `xpath` and `uri` when bound to an element
+
+The export process normalizes legacy strings to the object format so downstream tools receive a consistent schema.
+
+## Custom translations (not bound to the page)
+
+Use “Add Custom” to store a translation pair that isn’t present in the current DOM. These entries are exported with `isCustom: true` and have no XPath/URI.
+
+## Clearing all translations
+
+Click “Clear translations” to remove both storage keys. You must type `CONFIRM` to proceed. The page reloads after clearing.
+
+## Supported elements (detection summary)
+
+- Textual elements: `p`, `h1`–`h6`, `span`, `a`, `li`, `button`, `th`, `td`, `div`, `section`, `article`, `aside`, `header`, `footer`, `main`, `nav`, `small`, `label`
+- Inputs with placeholders: `input[placeholder]`, `textarea[placeholder]`
+- Elements inside `<script>` or `<style>` are ignored
+- The widget’s own DOM (class `.translation-widget`) is ignored
+
+## Development & scripts
 
 ```bash
-# Clone or download the project
-cd translator-app
-
-# Install dependencies
+# Install
 npm install
 
-# Start development server
+# Start dev server
 npm run dev
 
-# Build for production
+# Build production assets
 npm run build
 ```
 
-### Build Output
+Open the dev URL to test locally, or include the built `dist` files in any page to run the widget in production-like environments.
 
-The build process creates:
-- `dist/translation-widget.iife.js` - The main JavaScript bundle
-- `dist/translation-widget.css` - The CSS styles
+## Troubleshooting
 
-### Development Testing
+- The widget doesn’t show: Ensure both the CSS and JS are loaded on the page and no CSP blocks inline scripts/styles required by Vuetify.
+- Clicks navigate away while editing: Make sure the widget is visible; when visible, interactive elements are disabled and safe to click for editing.
+- Import fails: Confirm the file is valid JSON and is an array of objects with `originalText` and `translatedText` at minimum.
+- No changes after import: Ensure Preview Mode is enabled.
 
-1. Run `npm run dev` to start the development server
-2. Open the local URL shown in terminal
-3. Test the widget functionality on the development page
+## License & support
 
-### Production Testing
+This project is open source. Use, modify, and distribute as needed. For issues or questions, open an issue in the repository or contact the maintainers.
 
-1. Run `npm run build` to create the production files
-2. Open `public/test-page.html` in a web browser
-3. The page includes the built widget files and demonstrates all features
 
-## Technical Details
-
-### Browser Support
-
-- Modern browsers with ES6+ support
-- Chrome 60+, Firefox 60+, Safari 12+, Edge 79+
-
-### Storage
-
-The widget uses two localStorage keys:
-- `VUE_TRANSLATIONS_APP_DATA`: Translation pairs (original → translated text)
-- `VUE_TRANSLATIONS_APP_METADATA`: Element metadata (XPath and URI information)
-
-### Supported Elements
-
-The widget automatically detects these HTML elements:
-- Headings: `h1`, `h2`, `h3`, `h4`, `h5`, `h6`
-- Text: `p`, `span`
-- Interactive: `a`, `button`
-- Lists: `li`
-- Tables: `th`, `td`
-
-Elements inside `<script>` or `<style>` tags are automatically ignored.
-
-### XPath Generation
-
-Each translation is associated with a unique XPath that identifies the exact element location. This enables:
-- Precise element targeting
-- Export functionality with element context
-- Future import capabilities
-
-## Integration Examples
-
-### Basic Integration
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <link rel="stylesheet" href="translation-widget.css">
-</head>
-<body>
-    <h1>Your Website Content</h1>
-    <p>Any text content here can be translated.</p>
-    
-    <script src="translation-widget.iife.js"></script>
-</body>
-</html>
-```
-
-### Advanced Integration
-
-```html
-<!-- With custom positioning -->
-<style>
-.translation-control-panel {
-    top: 100px !important;
-    left: 50px !important;
-}
-</style>
-
-<script src="translation-widget.iife.js"></script>
-```
-
-## Customization
-
-### Styling
-
-The widget uses scoped styles to prevent conflicts, but you can override them:
-
-```css
-/* Change widget position */
-.translation-control-panel {
-    top: 20px !important;
-    right: 20px !important;
-    left: auto !important;
-}
-
-/* Customize colors */
-.translation-control-panel .v-card-title {
-    background: #your-brand-color !important;
-}
-```
-
-### Widget Behavior
-
-You can access the widget instance after initialization:
-
-```javascript
-// Access the widget instance
-const widget = window.translationWidget;
-
-// The TranslationManager is also available
-// Note: This is for advanced use cases
-```
-
-## FAQ
-
-**Q: Does this widget work on any website?**
-A: Yes, it's designed to work on any website. Simply include the CSS and JS files.
-
-**Q: Are translations stored online?**
-A: No, all translations are stored locally in your browser's localStorage.
-
-**Q: Can I import existing translations?**
-A: Currently, the widget supports export only. Import functionality can be added in future versions.
-
-**Q: Does it work with dynamically loaded content?**
-A: Yes, the widget uses MutationObserver to detect new content and automatically makes it translatable.
-
-**Q: Can I customize which elements are translatable?**
-A: The element types are defined in the `getTranslatableElements()` method in `main.js`. You can modify this list as needed.
-
-## License
-
-This project is open source. Feel free to modify and distribute according to your needs.
-
-## Support
-
-For issues, questions, or contributions, please refer to the project repository or contact the development team.
